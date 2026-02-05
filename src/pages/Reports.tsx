@@ -12,8 +12,6 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    LineChart,
-    Line,
     AreaChart,
     Area
 } from 'recharts';
@@ -22,7 +20,6 @@ import {
     TrendingUp,
     DollarSign,
     Award,
-    Calendar,
     PieChart,
     Download
 } from 'lucide-react';
@@ -35,13 +32,13 @@ interface ReportsPageProps {
 export function ReportsPage({ onNavigate }: ReportsPageProps) {
     const { user } = useAppStore();
     const [closures, setClosures] = React.useState<DailyClosure[]>([]);
-    const [loading, setLoading] = React.useState(true);
+    // const [loading, setLoading] = React.useState(true); // Unused
     const [range, setRange] = React.useState<'week' | 'month' | 'year'>('month');
 
     React.useEffect(() => {
         const loadData = async () => {
             if (!user) return;
-            setLoading(true);
+            // setLoading(true);
             try {
                 // Fetch all raw data and filter client-side for now
                 const data = await mockApi.getAllClosures(user.id);
@@ -49,7 +46,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
                 data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setClosures(data);
             } finally {
-                setLoading(false);
+                // setLoading(false);
             }
         };
         loadData();
@@ -65,7 +62,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
         // For 'month', let's take last 30 days.
         // For 'week', last 7 days.
         // For 'year', all time (or last 365).
-        
+
         const now = new Date();
         const cutoff = new Date();
         if (range === 'week') cutoff.setDate(now.getDate() - 7);
@@ -99,9 +96,9 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] z-10">
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onNavigate('weeks')}
                         className="rounded-full hover:bg-gray-100"
                     >
@@ -112,7 +109,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
                         <p className="text-sm text-gray-400 font-medium">Estadísticas generales</p>
                     </div>
                 </div>
-                
+
                 <div className="flex bg-gray-100 p-1 rounded-xl">
                     {(['week', 'month', 'year'] as const).map((r) => (
                         <button
@@ -130,7 +127,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             </div>
 
             <div className="flex-1 overflow-auto p-6 space-y-6">
-                
+
                 {/* KPI Grid */}
                 <div className="grid grid-cols-2 gap-4">
                     <Card className="p-4 border-none shadow-sm bg-blue-600 text-white rounded-2xl">
@@ -147,37 +144,37 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
 
                     <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
                         <div className="flex items-center gap-3 mb-2 text-gray-500">
-                             <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="p-2 bg-gray-100 rounded-lg">
                                 <DollarSign className="h-5 w-5 text-gray-600" />
                             </div>
                             <span className="text-xs font-bold uppercase tracking-wider">Ventas</span>
                         </div>
                         <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                             {fmt(stats.totalSales)}
+                            {fmt(stats.totalSales)}
                         </p>
                     </Card>
 
                     <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
                         <div className="flex items-center gap-3 mb-2 text-gray-500">
-                             <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="p-2 bg-gray-100 rounded-lg">
                                 <Award className="h-5 w-5 text-gray-600" />
                             </div>
                             <span className="text-xs font-bold uppercase tracking-wider">Premios</span>
                         </div>
                         <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                             {fmt(stats.totalPrizes)}
+                            {fmt(stats.totalPrizes)}
                         </p>
                     </Card>
 
                     <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
                         <div className="flex items-center gap-3 mb-2 text-gray-500">
-                             <div className="p-2 bg-gray-100 rounded-lg">
+                            <div className="p-2 bg-gray-100 rounded-lg">
                                 <PieChart className="h-5 w-5 text-gray-600" />
                             </div>
                             <span className="text-xs font-bold uppercase tracking-wider">Comisión</span>
                         </div>
                         <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                             {fmt(stats.totalCommission)}
+                            {fmt(stats.totalCommission)}
                         </p>
                     </Card>
                 </div>
@@ -195,63 +192,63 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
                             <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tick={{fontSize: 10, fill: '#9ca3af'}} 
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickMargin={10}
                                 />
-                                <YAxis 
-                                    tick={{fontSize: 10, fill: '#9ca3af'}} 
+                                <YAxis
+                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(val) => `₡${fmtCompact(val)}`}
                                 />
-                                <Tooltip 
+                                <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    formatter={(value: number) => [`₡${value.toLocaleString()}`, '']}
+                                    formatter={(value: any) => [`₡${Number(value).toLocaleString()}`, '']}
                                 />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="Ganancia" 
-                                    stroke="#2563eb" 
+                                <Area
+                                    type="monotone"
+                                    dataKey="Ganancia"
+                                    stroke="#2563eb"
                                     strokeWidth={3}
-                                    fillOpacity={1} 
-                                    fill="url(#colorProfit)" 
+                                    fillOpacity={1}
+                                    fill="url(#colorProfit)"
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </Card>
 
-                 <Card className="p-5 border-none shadow-sm rounded-3xl bg-white">
+                <Card className="p-5 border-none shadow-sm rounded-3xl bg-white">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Ventas vs Premios</h3>
                     </div>
                     <div className="h-64 w-full">
-                         <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tick={{fontSize: 10, fill: '#9ca3af'}} 
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickMargin={10}
                                 />
-                                <YAxis 
-                                    tick={{fontSize: 10, fill: '#9ca3af'}} 
+                                <YAxis
+                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(val) => `₡${fmtCompact(val)}`}
                                 />
-                                <Tooltip 
+                                <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                 />
                                 <Bar dataKey="Ventas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
