@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useAppStore } from '../lib/store';
 import { mockApi } from '../lib/mockApi';
-import type { DailyClosure, Advance, Week } from '../lib/types';
+import type { DailyClosure, Advance, Week, Deduction } from '../lib/types';
 import { calculateProfit } from '../lib/calculations';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -36,6 +36,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const [week, setWeek] = React.useState<Week | null>(null);
     const [closures, setClosures] = React.useState<DailyClosure[]>([]);
     const [advances, setAdvances] = React.useState<Advance[]>([]);
+    const [deductions, setDeductions] = React.useState<Deduction[]>([]);
     const [loading, setLoading] = React.useState(true);
 
     // Accordion state for days
@@ -143,6 +144,9 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                 const userAdvances = await mockApi.getAdvances(user.id);
                 setAdvances(userAdvances);
 
+                // 4. Fetch Deductions
+                const userDeductions = await mockApi.getDeductions(user.id);
+                setDeductions(userDeductions);
             } finally {
                 setLoading(false);
             }
@@ -166,49 +170,19 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         return advances.filter(a => a.date >= week.startDate && a.date <= week.endDate);
     }, [advances, week]);
 
-    // Adjustments
-    const [adjustmentPlus, setAdjustmentPlus] = React.useState<string>('');
-    const [adjustmentMinus, setAdjustmentMinus] = React.useState<string>('');
-
-    // Effect to load adjustments when week loads
-    React.useEffect(() => {
-        if (week) {
-            setAdjustmentPlus(week.adjustmentPlus?.toString() || '');
-            setAdjustmentMinus(week.adjustmentMinus?.toString() || '');
-        }
-    }, [week]);
+    const weekDeductions = React.useMemo(() => {
+        if (!week) return [];
+        return deductions.filter(d => d.date >= week.startDate && d.date <= week.endDate);
+    }, [deductions, week]);
 
     const totalAdvances = React.useMemo(() => weekAdvances.reduce((sum, a) => sum + (a.amount || 0), 0), [weekAdvances]);
-
-    // Parse adjustments safely
-    const adjPlusVal = parseInt(adjustmentPlus) || 0;
-    const adjMinusVal = parseInt(adjustmentMinus) || 0;
+    const totalDeductions = React.useMemo(() => weekDeductions.reduce((sum, d) => sum + (d.amount || 0), 0), [weekDeductions]);
 
     // Per user request: Advances should ADD to the profit.
-    // Logic: Profit + Advances + AdjPlus - AdjMinus = Final Balance
-    const finalBalance = totalProfit + totalAdvances + adjPlusVal - adjMinusVal;
+    // Logic: Profit + Advances - Deductions = Final Balance
+    const finalBalance = totalProfit + totalAdvances - totalDeductions;
 
-    const handleAdjustmentChange = async (type: 'plus' | 'minus', value: string) => {
-        if (!week) return;
 
-        // Update local UI state immediately
-        if (type === 'plus') setAdjustmentPlus(value);
-        else setAdjustmentMinus(value);
-
-        // Debounce or save logic could go here, but for now let's just save on blur or effect?
-        // Simpler: update the actual week object on blur or just do it here with a small delay? 
-        // Let's do save on simple update for now, or maybe just update local week state then trigger save.
-    };
-
-    const saveAdjustments = async () => {
-        if (!week) return;
-        const p = parseInt(adjustmentPlus) || 0;
-        const m = parseInt(adjustmentMinus) || 0;
-
-        const updatedWeek = { ...week, adjustmentPlus: p, adjustmentMinus: m };
-        setWeek(updatedWeek); // Optimistic
-        await mockApi.updateWeek(updatedWeek);
-    };
 
     // Actions
     const handleClosureChange = (closureId: string, field: 'saleTotal' | 'prizesPaid', value: string) => {
@@ -312,6 +286,51 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         }
     };
 
+    // --- Deductions Logic ---
+    const [newDeductionAmount, setNewDeductionAmount] = React.useState('');
+    const [newDeductionReason, setNewDeductionReason] = React.useState('');
+
+    const handleCreateDeduction = async () => {
+        if (!newDeductionAmount || !user || !week) return;
+
+        // Ensure date is within the current week
+        const today = new Date().toISOString().split('T')[0];
+        let targetDate = today;
+        if (today < week.startDate || today > week.endDate) {
+            targetDate = week.startDate;
+        }
+
+        try {
+            await mockApi.createDeduction({
+                userId: user.id,
+                amount: parseInt(newDeductionAmount),
+                reason: newDeductionReason || 'Deducción',
+                date: targetDate,
+                createdAt: new Date().toISOString()
+            });
+
+            setNewDeductionAmount('');
+            setNewDeductionReason('');
+
+            // Refresh
+            const userDeductions = await mockApi.getDeductions(user.id);
+            setDeductions(userDeductions);
+        } catch (error) {
+            console.error("Failed to create deduction", error);
+        }
+    };
+
+    const handleDeleteDeduction = async (id: string) => {
+        if (!confirm('¿Eliminar esta deducción?')) return;
+        try {
+            await mockApi.deleteDeduction(id);
+            const userDeductions = await mockApi.getDeductions(user!.id);
+            setDeductions(userDeductions);
+        } catch (error) {
+            console.error("Failed to delete deduction", error);
+        }
+    };
+
     /*
     const handleMoveAdvance = async (advance: Advance) => {
         if (!week) return;
@@ -394,49 +413,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                 </div>
 
                 {/* Manual Adjustments */}
-                {/* Manual Adjustments Dropdown */}
-                <div className="mt-4">
-                    <details className="group">
-                        <summary className="flex items-center gap-2 text-sm font-bold text-gray-500 cursor-pointer list-none hover:text-gray-700 transition-colors">
-                            <span className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm group-open:bg-gray-50 transition-all flex items-center gap-2">
-                                <Banknote className="w-4 h-4" />
-                                Ajustes de Ganancia
-                                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
-                            </span>
-                        </summary>
-
-                        <div className="mt-3 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 animate-in slide-in-from-top-2 duration-200">
-                            <div className="flex gap-4">
-                                <div className="flex-1 space-y-1.5">
-                                    <label className="text-[10px] uppercase tracking-wider font-bold text-green-600 block">Bonificación (+)</label>
-                                    <div className="relative">
-                                        <Input
-                                            className="border-green-100 bg-green-50/50 text-green-700 font-bold text-right pr-2 focus:border-green-500 focus:ring-green-200"
-                                            placeholder="0"
-                                            value={adjustmentPlus === '0' ? '' : adjustmentPlus}
-                                            onChange={(e) => handleAdjustmentChange('plus', e.target.value)}
-                                            onBlur={saveAdjustments}
-                                            type="number"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex-1 space-y-1.5">
-                                    <label className="text-[10px] uppercase tracking-wider font-bold text-red-600 block">Deducción (-)</label>
-                                    <div className="relative">
-                                        <Input
-                                            className="border-red-100 bg-red-50/50 text-red-600 font-bold text-right pr-2 focus:border-red-500 focus:ring-red-200"
-                                            placeholder="0"
-                                            value={adjustmentMinus === '0' ? '' : adjustmentMinus}
-                                            onChange={(e) => handleAdjustmentChange('minus', e.target.value)}
-                                            onBlur={saveAdjustments}
-                                            type="number"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-                </div>
+                {/* Manual Adjustments Removed */}
             </div>
 
             <div className="flex-1 px-5 space-y-6">
@@ -574,6 +551,73 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                 </Card>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* Deductions Section */}
+                <div className="pb-4">
+                    <div className="flex items-center justify-between px-1 mb-3">
+                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Deducciones</h2>
+                        <span className="text-xs font-medium text-gray-500 bg-white border border-gray-100 px-2 py-0.5 rounded-md shadow-sm">
+                            Total: ₡{fmtPlain(totalDeductions)}
+                        </span>
+                    </div>
+
+                    <div className="space-y-3 mb-4">
+                        {/* New Deduction Input */}
+                        <div className="flex flex-col gap-2 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Motivo (ej: Sinpe, Faltante...)"
+                                    className="flex-1 border-gray-100 bg-gray-50/50 text-sm"
+                                    value={newDeductionReason}
+                                    onChange={(e) => setNewDeductionReason(e.target.value)}
+                                />
+                                <div className="relative w-32">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₡</span>
+                                    <Input
+                                        placeholder="0"
+                                        className="pl-7 border-gray-100 bg-gray-50/50 text-right font-bold text-sm"
+                                        type="number"
+                                        value={newDeductionAmount}
+                                        onChange={(e) => setNewDeductionAmount(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateDeduction()}
+                                    />
+                                </div>
+                            </div>
+                            <Button
+                                className="w-full bg-red-50 text-red-600 hover:bg-red-100 border-none font-bold h-9"
+                                onClick={handleCreateDeduction}
+                                disabled={!newDeductionAmount}
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Agregar Deducción
+                            </Button>
+                        </div>
+
+                        {/* Deductions List */}
+                        {weekDeductions.map((ded) => (
+                            <Card key={ded.id} className="p-3 rounded-2xl border-none shadow-sm bg-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                                        <Banknote className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-sm text-gray-900 truncate">{ded.reason}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium">{new Date(ded.date).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-bold text-red-500">-₡{fmtPlain(ded.amount)}</span>
+                                    <button
+                                        onClick={() => handleDeleteDeduction(ded.id)}
+                                        className="text-gray-300 hover:text-red-500 transition-colors"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </Card>
+                        ))}
                     </div>
                 </div>
 

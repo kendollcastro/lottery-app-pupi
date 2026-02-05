@@ -12,6 +12,15 @@ export interface Expense {
     createdAt: string; // ISO date
 }
 
+export interface Deduction {
+    id: string;
+    userId: string;
+    amount: number;
+    reason: string;
+    date: string; // YYYY-MM-DD
+    createdAt: string; // ISO date
+}
+
 export interface Advance {
     id: string;
     userId: string;

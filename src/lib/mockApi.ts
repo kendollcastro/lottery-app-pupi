@@ -1,4 +1,4 @@
-import type { User, DailyClosure, Advance, Week } from './types';
+import type { User, DailyClosure, Advance, Week, Deduction } from './types';
 import { calculateProfit } from './calculations';
 
 // Initial Mock Data
@@ -55,6 +55,8 @@ const MOCK_ADVANCES: Advance[] = [
     { id: 'a2', userId: 'u1', amount: 25000, reason: 'Pago parcial', date: '2023-10-12', createdAt: '2023-10-12T14:30:00Z' },
 ];
 
+let MOCK_DEDUCTIONS: Deduction[] = [];
+
 // Helper to simulate DB delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -62,6 +64,27 @@ export const mockApi = {
     login: async (username: string): Promise<User | null> => {
         await delay(300);
         return MOCK_USERS.find(u => u.username === username) || null;
+    },
+
+    // Deductions
+    getDeductions: async (userId: string): Promise<Deduction[]> => {
+        await delay(200);
+        return MOCK_DEDUCTIONS.filter(d => d.userId === userId);
+    },
+
+    createDeduction: async (data: Omit<Deduction, 'id'>): Promise<Deduction> => {
+        await delay(300);
+        const newDeduction: Deduction = {
+            ...data,
+            id: `d-${Date.now()}`
+        };
+        MOCK_DEDUCTIONS.push(newDeduction);
+        return newDeduction;
+    },
+
+    deleteDeduction: async (id: string): Promise<void> => {
+        await delay(300);
+        MOCK_DEDUCTIONS = MOCK_DEDUCTIONS.filter(d => d.id !== id);
     },
 
     getWeeks: async (): Promise<Week[]> => {
