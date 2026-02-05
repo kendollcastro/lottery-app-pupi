@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    font-family: 'Inter', sans-serif;
+    --touch-scale: 0.98;
+  }
+
+  body {
+    @apply bg-[#F8F9FB] text-gray-900 antialiased transition-colors duration-300 dark:bg-gray-950 dark:text-gray-50;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .ios-active {
+    @apply transition-transform duration-200 ease-out active:scale-95;
+  }
+
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-sm;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom Scrollbar for nicer feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-200 rounded-full hover:bg-gray-300 transition-colors;
+}
