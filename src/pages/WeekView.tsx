@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useAppStore } from '../lib/store';
-import { mockApi } from '../lib/mockApi';
+import { api } from '../lib/api';
 import type { DailyClosure, Advance, Week, Deduction } from '../lib/types';
 import { calculateProfit } from '../lib/calculations';
 import { Card } from '../components/ui/Card';
@@ -74,7 +74,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             setLoading(true);
             try {
                 // 1. Fetch Week Details
-                const allWeeks = await mockApi.getWeeks();
+                const allWeeks = await api.getWeeks();
                 const currentWeek = allWeeks.find(w => w.id === weekId);
                 setWeek(currentWeek || null);
 
@@ -83,7 +83,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
                     // 2. Fetch Closures for each day
                     const closurePromises = dates.map(async (date) => {
-                        const existing = await mockApi.getClosure(user.id, date);
+                        const existing = await api.getClosure(user.id, date);
                         if (existing) return existing;
 
                         return {
@@ -109,31 +109,29 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                         setExpandedDay(dates[0]);
                     }
 
-                    // 4. Find Previous Week & Balance (Mock Logic)
-                    // In real app, we query by startDate < current.startDate order by startDate desc limit 1
-                    // Here we just look for one that ends day before start or similar.
-                    // For simplicity, let's just find any week that ended clearly before this one.
-
-                    // Better verify logic: simply find the week immediately before.
-                    // Let's assume list is somewhat ordered or we sort it.
+                    // 4. Find Previous Week & Balance
+                    // Logic: simply find the week immediately before.
                     const sorted = [...allWeeks].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
                     const currentIndex = sorted.findIndex(w => w.id === currentWeek.id);
-                    const prev = sorted[currentIndex + 1]; // Next in desc list is "previous" in time
+                    const prev = sorted[currentIndex + 1];
 
                     if (prev) {
                         setPrevWeek(prev);
-                        // Calculate its balance: (Profits + Advances of that week)
-                        // This is heavy in client-side mock, but okay.
-                        const prevClosures = await mockApi.getAllClosures(user.id);
+                        // Calculate its balance
+                        const prevClosures = await api.getAllClosures(user.id);
                         const prevWeekDays = getDaysArray(prev.startDate, prev.endDate);
                         const relevantClosures = prevClosures.filter(c => prevWeekDays.includes(c.date));
                         const prevProfit = relevantClosures.reduce((sum, c) => sum + (c.calculatedProfit || 0), 0);
 
-                        const allAdvances = await mockApi.getAdvances(user.id);
+                        const allAdvances = await api.getAdvances(user.id);
                         const prevAdvances = allAdvances.filter(a => a.date >= prev.startDate && a.date <= prev.endDate);
                         const prevAdvTotal = prevAdvances.reduce((sum, a) => sum + a.amount, 0);
 
-                        setPrevWeekBalance(prevProfit + prevAdvTotal);
+                        const allDeductions = await api.getDeductions(user.id);
+                        const prevDeductions = allDeductions.filter(d => d.date >= prev.startDate && d.date <= prev.endDate);
+                        const prevDedTotal = prevDeductions.reduce((sum, d) => sum + d.amount, 0);
+
+                        setPrevWeekBalance(prevProfit + prevAdvTotal - prevDedTotal);
                     } else {
                         setPrevWeek(null);
                         setPrevWeekBalance(null);
@@ -141,11 +139,11 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                 }
 
                 // 3. Fetch Advances
-                const userAdvances = await mockApi.getAdvances(user.id);
+                const userAdvances = await api.getAdvances(user.id);
                 setAdvances(userAdvances);
 
                 // 4. Fetch Deductions
-                const userDeductions = await mockApi.getDeductions(user.id);
+                const userDeductions = await api.getDeductions(user.id);
                 setDeductions(userDeductions);
             } finally {
                 setLoading(false);
@@ -206,7 +204,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const handleSaveClosure = async (closure: DailyClosure) => {
         const target = closures.find(c => c.id === closure.id);
         if (!target) return;
-        await mockApi.saveClosure(target);
+        await api.saveClosure(target);
     };
 
     // Delete Modal State
@@ -225,14 +223,14 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         setCreatingAdvance(true);
         try {
             const amount = parseInt(newAdvanceAmount);
-            await mockApi.createAdvance({
+            await api.createAdvance({
                 userId: user.id,
                 amount: amount,
                 reason: 'Adelanto Manual',
                 date: targetDate
             });
             // Refresh advances
-            const userAdvances = await mockApi.getAdvances(user.id);
+            const userAdvances = await api.getAdvances(user.id);
             setAdvances(userAdvances);
             setNewAdvanceAmount('');
         } finally {
@@ -256,14 +254,14 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         try {
             // Logic: Just carry over the exact amount.
             // If previous week had +10,000 profit, we add +10,000 here.
-            await mockApi.createAdvance({
+            await api.createAdvance({
                 userId: user.id,
                 amount: prevWeekBalance,
                 reason: `Saldo Anterior (${prevWeek.name})`,
                 date: targetDate
             });
             // Refresh advances
-            const userAdvances = await mockApi.getAdvances(user.id);
+            const userAdvances = await api.getAdvances(user.id);
             setAdvances(userAdvances);
         } finally {
             setCreatingAdvance(false);
@@ -277,8 +275,8 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const confirmDeleteAdvance = async () => {
         if (!advanceToDelete) return;
         try {
-            await mockApi.deleteAdvance(advanceToDelete);
-            const userAdvances = await mockApi.getAdvances(user!.id);
+            await api.deleteAdvance(advanceToDelete);
+            const userAdvances = await api.getAdvances(user!.id);
             setAdvances(userAdvances);
             setAdvanceToDelete(null);
         } catch (error) {
@@ -301,7 +299,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         }
 
         try {
-            await mockApi.createDeduction({
+            await api.createDeduction({
                 userId: user.id,
                 amount: parseInt(newDeductionAmount),
                 reason: newDeductionReason || 'Deducción',
@@ -313,7 +311,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             setNewDeductionReason('');
 
             // Refresh
-            const userDeductions = await mockApi.getDeductions(user.id);
+            const userDeductions = await api.getDeductions(user.id);
             setDeductions(userDeductions);
         } catch (error) {
             console.error("Failed to create deduction", error);
@@ -323,8 +321,8 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const handleDeleteDeduction = async (id: string) => {
         if (!confirm('¿Eliminar esta deducción?')) return;
         try {
-            await mockApi.deleteDeduction(id);
-            const userDeductions = await mockApi.getDeductions(user!.id);
+            await api.deleteDeduction(id);
+            const userDeductions = await api.getDeductions(user!.id);
             setDeductions(userDeductions);
         } catch (error) {
             console.error("Failed to delete deduction", error);
@@ -442,6 +440,14 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                         <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Comisión</p>
                             <p className="text-sm font-bold text-gray-900">₡{fmtPlain(totalCommission)}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Adelantos</p>
+                            <p className="text-sm font-bold text-green-600">+₡{fmtPlain(totalAdvances)}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deducciones</p>
+                            <p className="text-sm font-bold text-red-500">-₡{fmtPlain(totalDeductions)}</p>
                         </div>
                     </div>
                 </Card>
@@ -671,8 +677,8 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                 </div>
                                 <div className="flex items-center gap-2 pl-2">
                                     <div className="text-right whitespace-nowrap">
-                                        <div className={cn("text-lg font-bold", adv.amount > 0 ? "text-red-500" : "text-green-600")}>
-                                            {adv.amount > 0 ? '-' : '+'} ₡{fmtPlain(Math.abs(adv.amount))}
+                                        <div className={cn("text-lg font-bold", adv.amount >= 0 ? "text-green-600" : "text-red-500")}>
+                                            {adv.amount >= 0 ? '+' : '-'} ₡{fmtPlain(Math.abs(adv.amount))}
                                         </div>
                                     </div>
 

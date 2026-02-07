@@ -9,10 +9,13 @@ import { SalesPage } from './pages/Sales';
 import { ReportsPage } from './pages/Reports';
 import { Layout } from './components/Layout';
 
+import { RegisterPage } from './pages/Register';
+
 function App() {
   const { user, selectedBusinessId } = useAppStore();
   const [selectedWeekId, setSelectedWeekId] = React.useState<string | null>(null);
   const [currentView, setCurrentView] = React.useState<'weeks' | 'sales' | 'reports' | 'profile'>('weeks');
+  const [isRegistering, setIsRegistering] = React.useState(false);
 
   // Reset week selection if business changes
   React.useEffect(() => {
@@ -20,9 +23,16 @@ function App() {
   }, [selectedBusinessId]);
 
   if (!user) {
+    if (isRegistering) {
+      return (
+        <div className="bg-[#F8F9FB] min-h-screen text-gray-900 font-sans">
+          <RegisterPage onBack={() => setIsRegistering(false)} />
+        </div>
+      );
+    }
     return (
       <div className="bg-[#F8F9FB] min-h-screen text-gray-900 font-sans">
-        <LoginPage />
+        <LoginPage onRegisterClick={() => setIsRegistering(true)} />
       </div>
     );
   }

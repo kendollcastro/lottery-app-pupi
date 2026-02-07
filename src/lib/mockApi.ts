@@ -66,6 +66,16 @@ export const mockApi = {
         return MOCK_USERS.find(u => u.username === username) || null;
     },
 
+    register: async (user: Omit<User, 'id'>): Promise<User> => {
+        await delay(500);
+        const newUser: User = {
+            ...user,
+            id: `u${Date.now()}`
+        };
+        MOCK_USERS.push(newUser);
+        return newUser;
+    },
+
     // Deductions
     getDeductions: async (userId: string): Promise<Deduction[]> => {
         await delay(200);

@@ -16,12 +16,16 @@ import {
     Area
 } from 'recharts';
 import {
-    ArrowLeft,
-    TrendingUp,
     DollarSign,
     Award,
     PieChart,
-    Download
+    Download,
+    Calendar,
+    Wallet,
+    BarChart3,
+    User,
+    ArrowLeft,
+    TrendingUp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -92,7 +96,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
     }, [stats.filtered]);
 
     return (
-        <div className="flex flex-col h-full bg-[#F8F9FB] animate-in fade-in duration-300">
+        <div className="flex flex-col min-h-screen bg-[#F8F9FB] pb-20 animate-in fade-in duration-300">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] z-10">
                 <div className="flex items-center gap-3">
@@ -257,6 +261,39 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
                         </ResponsiveContainer>
                     </div>
                 </Card>
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-10 pb-6 pt-3 px-6">
+                <div className="flex justify-between items-center max-w-md mx-auto">
+                    <button
+                        onClick={() => onNavigate('weeks')}
+                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <Calendar className="h-6 w-6" />
+                        <span className="text-[10px] font-bold">SEMANAS</span>
+                    </button>
+                    <button
+                        onClick={() => onNavigate('sales')}
+                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <Wallet className="h-6 w-6" />
+                        <span className="text-[10px] font-bold">VENTAS</span>
+                    </button>
+                    <button
+                        className="flex flex-col items-center gap-1 text-blue-600 transition-colors"
+                    >
+                        <BarChart3 className="h-6 w-6" />
+                        <span className="text-[10px] font-bold">REPORTES</span>
+                    </button>
+                    <button
+                        onClick={() => onNavigate('profile')}
+                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <User className="h-6 w-6" />
+                        <span className="text-[10px] font-bold">PERFIL</span>
+                    </button>
+                </div>
             </div>
         </div>
     );

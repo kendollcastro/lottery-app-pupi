@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { useAppStore } from '../lib/store';
-import { mockApi } from '../lib/mockApi';
 import { Button } from '../components/ui/Button';
 import {
     Loader2,
@@ -12,15 +11,18 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function LoginPage() {
-    const [username, setUsername] = React.useState('');
-    const [password, setPassword] = React.useState(''); // Added for visual fidelity
+import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
+
+export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) {
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
     const [showPassword, setShowPassword] = React.useState(false);
     const [rememberMe, setRememberMe] = React.useState(false);
 
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
-    const setUser = useAppStore((state) => state.setUser);
+    const { setUser, setSession } = useAppStore();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,20 +30,27 @@ export function LoginPage() {
         setError('');
 
         try {
-            // Mock login still only depends on username existence in mockApi
-            const user = await mockApi.login(username);
-            if (user) {
-                // Simulate a small delay for the "password check" feeling
-                setTimeout(() => {
-                    setUser(user);
-                    setLoading(false);
-                }, 800);
-            } else {
-                setError('Usuario no encontrado');
-                setLoading(false);
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (authError) throw authError;
+
+            if (data.session) {
+                setSession(data.session);
+                const userProfile = await api.getCurrentUser();
+                if (userProfile) {
+                    setUser(userProfile);
+                } else {
+                    // Fallback or handle missing profile
+                    console.error("Profile not found");
+                }
             }
-        } catch (err) {
-            setError('Error al iniciar sesión');
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : 'Error al iniciar sesión');
+        } finally {
             setLoading(false);
         }
     };
@@ -73,11 +82,11 @@ export function LoginPage() {
                                 <Mail className="h-5 w-5" />
                             </div>
                             <input
-                                id="username"
-                                type="text"
+                                id="email"
+                                type="email"
                                 placeholder="ejemplo@correo.com"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 className="w-full h-12 pl-10 pr-4 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                                 autoFocus
                             />
@@ -157,9 +166,12 @@ export function LoginPage() {
                 <div className="mt-8 text-center">
                     <p className="text-sm text-gray-500">
                         ¿No tienes una cuenta?{' '}
-                        <a href="#" className="font-bold text-blue-600 hover:text-blue-700">
+                        <button
+                            onClick={onRegisterClick}
+                            className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
                             Regístrate
-                        </a>
+                        </button>
                     </p>
                 </div>
 
