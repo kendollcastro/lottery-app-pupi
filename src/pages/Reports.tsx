@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useAppStore } from '../lib/store';
-import { mockApi } from '../lib/mockApi';
+import { api } from '../lib/api';
 import type { DailyClosure } from '../lib/types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -45,7 +45,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             // setLoading(true);
             try {
                 // Fetch all raw data and filter client-side for now
-                const data = await mockApi.getAllClosures(user.id);
+                const data = await api.getAllClosures(user.id);
                 // Sort by date asc
                 data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setClosures(data);

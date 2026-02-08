@@ -3,7 +3,7 @@ import { Card } from '../components/ui/Card';
 import { useAppStore } from '../lib/store';
 import { Wallet, Calendar as CalendarIcon, BarChart3, User as UserIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { mockApi } from '../lib/mockApi';
+import { api } from '../lib/api';
 import type { DailyClosure } from '../lib/types';
 import { cn } from '../lib/utils'; // Assuming utils exists
 
@@ -20,7 +20,7 @@ export function SalesPage({ onNavigate }: SalesPageProps) {
     // Fetch closures on mount
     React.useEffect(() => {
         if (user) {
-            mockApi.getAllClosures(user.id).then(setClosures);
+            api.getAllClosures(user.id).then(setClosures);
         }
     }, [user]);
 

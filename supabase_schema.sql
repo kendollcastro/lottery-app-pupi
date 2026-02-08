@@ -152,7 +152,7 @@ create trigger on_auth_user_created
 insert into public.weeks (name, start_date, end_date, status)
 values (
   'Semana Actual',
-  current_date,
-  current_date + interval '6 days',
+  date_trunc('week', current_date)::date,
+  (date_trunc('week', current_date) + interval '6 days')::date,
   'active'
 );

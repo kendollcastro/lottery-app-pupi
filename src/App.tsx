@@ -11,16 +11,58 @@ import { Layout } from './components/Layout';
 
 import { RegisterPage } from './pages/Register';
 
+import { supabase } from './lib/supabase';
+import { api } from './lib/api';
+
 function App() {
-  const { user, selectedBusinessId } = useAppStore();
+  const { user, setUser, selectedBusinessId } = useAppStore();
   const [selectedWeekId, setSelectedWeekId] = React.useState<string | null>(null);
   const [currentView, setCurrentView] = React.useState<'weeks' | 'sales' | 'reports' | 'profile'>('weeks');
   const [isRegistering, setIsRegistering] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  // Initialize Auth Listener
+  React.useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Fetch profile
+        api.getCurrentUser().then((profile) => {
+          if (profile) setUser(profile);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const profile = await api.getCurrentUser();
+        if (profile) setUser(profile);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Reset week selection if business changes
   React.useEffect(() => {
     setSelectedWeekId(null);
   }, [selectedBusinessId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     if (isRegistering) {
