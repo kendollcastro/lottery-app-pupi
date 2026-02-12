@@ -47,6 +47,31 @@ export const api = {
         }));
     },
 
+    createWeek: async (week: Omit<Week, 'id'>): Promise<Week> => {
+        const { data, error } = await supabase
+            .from('weeks')
+            .insert({
+                name: week.name,
+                start_date: week.startDate,
+                end_date: week.endDate,
+                status: week.status,
+                is_pinned: week.isPinned
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            name: data.name,
+            startDate: data.start_date,
+            endDate: data.end_date,
+            status: data.status,
+            isPinned: data.is_pinned
+        };
+    },
+
     // Closures
     getClosure: async (userId: string, date: string): Promise<DailyClosure | null> => {
         const { data, error } = await supabase

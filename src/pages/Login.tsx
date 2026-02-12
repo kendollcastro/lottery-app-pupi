@@ -26,31 +26,39 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("Login attempt started for:", email);
         setLoading(true);
         setError('');
 
         try {
+            console.log("Calling supabase.auth.signInWithPassword...");
             const { data, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
+            console.log("SignIn response:", { data, authError });
 
             if (authError) throw authError;
 
             if (data.session) {
+                console.log("Session found, setting session...");
                 setSession(data.session);
+                console.log("Fetching user profile...");
                 const userProfile = await api.getCurrentUser();
+                console.log("Profile result:", userProfile);
+
                 if (userProfile) {
                     setUser(userProfile);
                 } else {
-                    // Fallback or handle missing profile
-                    console.error("Profile not found");
+                    console.error("Profile not found in DB");
+                    setError("Usuario autenticado pero sin perfil. Contacta soporte.");
                 }
             }
         } catch (err: any) {
-            console.error(err);
+            console.error("Login Error:", err);
             setError(err.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : 'Error al iniciar sesión');
         } finally {
+            console.log("Login flow finished, setLoading(false)");
             setLoading(false);
         }
     };

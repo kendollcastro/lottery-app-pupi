@@ -61,24 +61,56 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
             .reduce((sum, a) => sum + a.amount, 0);
     };
 
-    // Note: Creating weeks is restricted mostly, but we'll include a placeholder or basic impl if needed.
-    // The previous code had createWeek. api.ts generally reads weeks.
-    // For now assuming weeks are admin-managed or pre-generated, BUT valid requirements might ask for creation.
-    // I'll comment out actual creation if api.ts doesn't support it, or add it if needed.
-    // Checking api.ts... it has getWeeks, getClosure, etc. It does NOT have createWeek.
-    // I'll disable the create button functionality with a message or just log for now as "Admin Only" features usually.
-    const handleCreateWeek = async () => {
-        alert("La creación de semanas es solo para administradores por ahora.");
-        /*
+    // Create Week State
+    const [createModalOpen, setCreateModalOpen] = React.useState(false);
+    const [newWeekName, setNewWeekName] = React.useState('');
+    const [newWeekDate, setNewWeekDate] = React.useState('');
+    const [creating, setCreating] = React.useState(false);
+
+    const handleCreateWeek = () => {
+        // Basic role check on client side (RLS enforces on server)
+        if (user?.role !== 'admin') {
+            alert("Solo los administradores pueden crear semanas.");
+            return;
+        }
+
+        // Default to next Monday or today if it's Monday
+        const today = new Date();
+        const day = today.getDay();
+        const diff = day === 1 ? 0 : (day === 0 ? 1 : 8 - day); // If Sunday (0), +1. If Mon(1), +0. Else next Mon.
+        const nextMonday = new Date(today);
+        nextMonday.setDate(today.getDate() + diff);
+
+        setNewWeekDate(nextMonday.toISOString().split('T')[0]);
+        setNewWeekName(`Semana del ${nextMonday.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`);
+        setCreateModalOpen(true);
+    };
+
+    const executeCreateWeek = async () => {
+        if (!newWeekDate || !newWeekName) return;
         setCreating(true);
         try {
-            const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
-            // await api.createWeek(...) -> API needs update if we want this
+            const start = new Date(newWeekDate);
+            // Ensure end date is +6 days (Sunday)
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+
+            await api.createWeek({
+                name: newWeekName,
+                startDate: newWeekDate,
+                endDate: end.toISOString().split('T')[0],
+                status: 'active',
+                isPinned: false
+            });
+
             await init();
+            setCreateModalOpen(false);
+        } catch (error) {
+            console.error("Failed to create week:", error);
+            alert("Error al crear semana. Verifica que seas administrador.");
         } finally {
             setCreating(false);
         }
-        */
     };
 
     const confirmDelete = (e: React.MouseEvent, weekId: string) => {
@@ -110,6 +142,45 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
 
     return (
         <div className="flex flex-col min-h-screen bg-[#F8F9FB] pb-20 transition-colors duration-300">
+
+            {/* Create Week Modal */}
+            <Modal
+                isOpen={createModalOpen}
+                onClose={() => setCreateModalOpen(false)}
+                title="Nueva Semana"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setCreateModalOpen(false)}>Cancelar</Button>
+                        <Button
+                            className="bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={executeCreateWeek}
+                            disabled={creating || !newWeekName || !newWeekDate}
+                        >
+                            {creating ? 'Creando...' : 'Crear Semana'}
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la Semana</label>
+                        <Input
+                            value={newWeekName}
+                            onChange={(e) => setNewWeekName(e.target.value)}
+                            placeholder="Ej: Semana 10 - Octubre"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio (Lunes)</label>
+                        <Input
+                            type="date"
+                            value={newWeekDate}
+                            onChange={(e) => setNewWeekDate(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">La fecha de fin se calculará automáticamente (Domingo).</p>
+                    </div>
+                </div>
+            </Modal>
 
             <Modal
                 isOpen={deleteModalOpen}
