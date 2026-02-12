@@ -74,7 +74,7 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
                     {/* Username/Email Input */}
                     <div className="space-y-2">
-                        <label htmlFor="username" className="text-sm font-bold text-gray-700 ml-1">
+                        <label htmlFor="email" className="text-sm font-bold text-gray-700 ml-1">
                             Usuario / Email
                         </label>
                         <div className="relative">
@@ -175,10 +175,9 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
                     </p>
                 </div>
 
-                <div className="mt-8 text-center">
-                    <p className="text-xs text-gray-400 font-medium bg-gray-50 py-2 px-4 rounded-full inline-block border border-gray-100">
-                        Demo: <span className="font-mono text-gray-600">admin</span>
-                    </p>
+                {/* Removed confusing demo hint */}
+                <div className="mt-8 text-center text-xs text-gray-400">
+                    <p>Usa tu cuenta registrada</p>
                 </div>
 
             </div>

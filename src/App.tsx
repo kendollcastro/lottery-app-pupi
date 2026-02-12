@@ -19,22 +19,27 @@ function App() {
   const [selectedWeekId, setSelectedWeekId] = React.useState<string | null>(null);
   const [currentView, setCurrentView] = React.useState<'weeks' | 'sales' | 'reports' | 'profile'>('weeks');
   const [isRegistering, setIsRegistering] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false); // Start false to show UI immediately
 
   // Initialize Auth Listener
   React.useEffect(() => {
     // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // Fetch profile
-        api.getCurrentUser().then((profile) => {
+    // Check initial session safely
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Fetch profile
+          const profile = await api.getCurrentUser();
           if (profile) setUser(profile);
-          setLoading(false);
-        });
-      } else {
+        }
+      } catch (error) {
+        console.error('Session init error:', error);
+      } finally {
         setLoading(false);
       }
-    });
+    };
+    initSession();
 
     const {
       data: { subscription },
