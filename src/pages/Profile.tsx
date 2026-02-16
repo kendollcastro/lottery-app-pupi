@@ -1,5 +1,5 @@
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+
 import { Input } from '../components/ui/Input';
 import { LogOut, User as UserIcon, Calendar, Wallet, BarChart3, Percent } from 'lucide-react';
 import { useAppStore } from '../lib/store';

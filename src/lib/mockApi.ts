@@ -39,6 +39,7 @@ const MOCK_CLOSURES: DailyClosure[] = [
     {
         id: 'c1',
         userId: 'u1',
+        businessId: 'b1',
         date: '2023-10-23',
         saleTotal: 50000,
         prizesPaid: 12000,
@@ -51,8 +52,8 @@ const MOCK_CLOSURES: DailyClosure[] = [
 ];
 
 const MOCK_ADVANCES: Advance[] = [
-    { id: 'a1', userId: 'u1', amount: 50000, reason: 'Adelanto Semana Santa', date: '2023-10-10', createdAt: '2023-10-10T10:00:00Z' },
-    { id: 'a2', userId: 'u1', amount: 25000, reason: 'Pago parcial', date: '2023-10-12', createdAt: '2023-10-12T14:30:00Z' },
+    { id: 'a1', userId: 'u1', businessId: 'b1', amount: 50000, reason: 'Adelanto Semana Santa', date: '2023-10-10', createdAt: '2023-10-10T10:00:00Z' },
+    { id: 'a2', userId: 'u1', businessId: 'b1', amount: 25000, reason: 'Pago parcial', date: '2023-10-12', createdAt: '2023-10-12T14:30:00Z' },
 ];
 
 let MOCK_DEDUCTIONS: Deduction[] = [];

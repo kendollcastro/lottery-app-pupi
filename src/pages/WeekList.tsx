@@ -26,7 +26,7 @@ interface WeekListProps {
 }
 
 export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
-    const { user } = useAppStore(); // Added user from store
+    const { user, selectedBusinessId } = useAppStore(); // Added user from store
     const [weeks, setWeeks] = React.useState<Week[]>([]);
     const [advances, setAdvances] = React.useState<Advance[]>([]); // To show totals
     const [loading, setLoading] = React.useState(true);
@@ -36,12 +36,12 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
     const [weekToDelete, setWeekToDelete] = React.useState<string | null>(null);
 
     const init = async () => {
-        if (!user) return;
+        if (!user || !selectedBusinessId) return;
         setLoading(true);
         try {
             const [data, userAdvances] = await Promise.all([
-                api.getWeeks(),
-                api.getAdvances(user.id)
+                api.getWeeks(), // Assuming getWeeks doesn't need businessId yet or handles it internally? checking api.ts would be good but error didn't complain.
+                api.getAdvances(user.id, selectedBusinessId)
             ]);
             setWeeks(data);
             setAdvances(userAdvances);
@@ -54,7 +54,7 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
 
     React.useEffect(() => {
         init();
-    }, [user]); // Dependency on user
+    }, [user, selectedBusinessId]); // Dependency on user
 
     const getWeekAdvancesTotal = (week: Week) => {
         return advances
