@@ -23,7 +23,7 @@ import {
     CalendarClock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-// import { toast } from 'sonner';
+import { toast } from 'sonner';
 
 interface WeekViewPageProps {
     weekId: string;
@@ -32,7 +32,7 @@ interface WeekViewPageProps {
 }
 
 export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) {
-    const { user } = useAppStore();
+    const { user, selectedBusinessId } = useAppStore();
     const [week, setWeek] = React.useState<Week | null>(null);
     const [closures, setClosures] = React.useState<DailyClosure[]>([]);
     const [advances, setAdvances] = React.useState<Advance[]>([]);
@@ -70,7 +70,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     // Initial Fetch
     React.useEffect(() => {
         const init = async () => {
-            if (!user) return;
+            if (!user || !selectedBusinessId) return;
             setLoading(true);
             try {
                 // 1. Fetch Week Details
@@ -83,12 +83,13 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
                     // 2. Fetch Closures for each day
                     const closurePromises = dates.map(async (date) => {
-                        const existing = await api.getClosure(user.id, date);
+                        const existing = await api.getClosure(user.id, date, selectedBusinessId);
                         if (existing) return existing;
 
                         return {
                             id: `temp-${date}`,
                             userId: user.id,
+                            businessId: selectedBusinessId,
                             date: date,
                             saleTotal: 0,
                             prizesPaid: 0,
@@ -118,16 +119,16 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                     if (prev) {
                         setPrevWeek(prev);
                         // Calculate its balance
-                        const prevClosures = await api.getAllClosures(user.id);
+                        const prevClosures = await api.getAllClosures(user.id, selectedBusinessId);
                         const prevWeekDays = getDaysArray(prev.startDate, prev.endDate);
                         const relevantClosures = prevClosures.filter(c => prevWeekDays.includes(c.date));
                         const prevProfit = relevantClosures.reduce((sum, c) => sum + (c.calculatedProfit || 0), 0);
 
-                        const allAdvances = await api.getAdvances(user.id);
+                        const allAdvances = await api.getAdvances(user.id, selectedBusinessId);
                         const prevAdvances = allAdvances.filter(a => a.date >= prev.startDate && a.date <= prev.endDate);
                         const prevAdvTotal = prevAdvances.reduce((sum, a) => sum + a.amount, 0);
 
-                        const allDeductions = await api.getDeductions(user.id);
+                        const allDeductions = await api.getDeductions(user.id, selectedBusinessId);
                         const prevDeductions = allDeductions.filter(d => d.date >= prev.startDate && d.date <= prev.endDate);
                         const prevDedTotal = prevDeductions.reduce((sum, d) => sum + d.amount, 0);
 
@@ -139,18 +140,18 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                 }
 
                 // 3. Fetch Advances
-                const userAdvances = await api.getAdvances(user.id);
+                const userAdvances = await api.getAdvances(user.id, selectedBusinessId);
                 setAdvances(userAdvances);
 
                 // 4. Fetch Deductions
-                const userDeductions = await api.getDeductions(user.id);
+                const userDeductions = await api.getDeductions(user.id, selectedBusinessId);
                 setDeductions(userDeductions);
             } finally {
                 setLoading(false);
             }
         };
         init();
-    }, [user, weekId]);
+    }, [user, weekId, selectedBusinessId]);
 
     // Calculations
     const totalProfit = React.useMemo(() => {
@@ -211,7 +212,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const [advanceToDelete, setAdvanceToDelete] = React.useState<string | null>(null);
 
     const handleCreateAdvance = async () => {
-        if (!newAdvanceAmount || !user || !week) return;
+        if (!newAdvanceAmount || !user || !week || !selectedBusinessId) return;
 
         // Ensure date is within the current week
         const today = new Date().toISOString().split('T')[0];
@@ -225,21 +226,25 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             const amount = parseInt(newAdvanceAmount);
             await api.createAdvance({
                 userId: user.id,
+                businessId: selectedBusinessId,
                 amount: amount,
                 reason: 'Adelanto Manual',
                 date: targetDate
             });
             // Refresh advances
-            const userAdvances = await api.getAdvances(user.id);
+            const userAdvances = await api.getAdvances(user.id, selectedBusinessId);
             setAdvances(userAdvances);
             setNewAdvanceAmount('');
+            toast.success('Adelanto registrado', {
+                description: `Se asignó un adelanto de ₡${fmtPlain(amount)}`
+            });
         } finally {
             setCreatingAdvance(false);
         }
     };
 
     const handleImportBalance = async () => {
-        if (!prevWeek || prevWeekBalance === null || !user || !week) return;
+        if (!prevWeek || prevWeekBalance === null || !user || !week || !selectedBusinessId) return;
 
         if (!confirm(`¿Importar el saldo de ${fmt(prevWeekBalance)} de la semana anterior?`)) return;
 
@@ -256,12 +261,13 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             // If previous week had +10,000 profit, we add +10,000 here.
             await api.createAdvance({
                 userId: user.id,
+                businessId: selectedBusinessId,
                 amount: prevWeekBalance,
                 reason: `Saldo Anterior (${prevWeek.name})`,
                 date: targetDate
             });
             // Refresh advances
-            const userAdvances = await api.getAdvances(user.id);
+            const userAdvances = await api.getAdvances(user.id, selectedBusinessId);
             setAdvances(userAdvances);
         } finally {
             setCreatingAdvance(false);
@@ -273,14 +279,16 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     };
 
     const confirmDeleteAdvance = async () => {
-        if (!advanceToDelete) return;
+        if (!advanceToDelete || !selectedBusinessId) return;
         try {
             await api.deleteAdvance(advanceToDelete);
-            const userAdvances = await api.getAdvances(user!.id);
+            const userAdvances = await api.getAdvances(user!.id, selectedBusinessId);
             setAdvances(userAdvances);
             setAdvanceToDelete(null);
+            toast.success('Adelanto eliminado');
         } catch (error) {
             console.error("Failed to delete advance", error);
+            toast.error('Error al eliminar adelanto');
         }
     };
 
@@ -289,7 +297,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
     const [newDeductionReason, setNewDeductionReason] = React.useState('');
 
     const handleCreateDeduction = async () => {
-        if (!newDeductionAmount || !user || !week) return;
+        if (!newDeductionAmount || !user || !week || !selectedBusinessId) return;
 
         // Ensure date is within the current week
         const today = new Date().toISOString().split('T')[0];
@@ -301,6 +309,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         try {
             await api.createDeduction({
                 userId: user.id,
+                businessId: selectedBusinessId,
                 amount: parseInt(newDeductionAmount),
                 reason: newDeductionReason || 'Deducción',
                 date: targetDate,
@@ -311,21 +320,27 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             setNewDeductionReason('');
 
             // Refresh
-            const userDeductions = await api.getDeductions(user.id);
+            const userDeductions = await api.getDeductions(user.id, selectedBusinessId);
             setDeductions(userDeductions);
+            toast.success('Deducción registrada', {
+                description: `Se registró una deducción de ₡${fmtPlain(parseInt(newDeductionAmount))}`
+            });
         } catch (error) {
             console.error("Failed to create deduction", error);
+            toast.error('Error al registrar deducción');
         }
     };
 
     const handleDeleteDeduction = async (id: string) => {
-        if (!confirm('¿Eliminar esta deducción?')) return;
+        if (!confirm('¿Eliminar esta deducción?') || !selectedBusinessId) return;
         try {
             await api.deleteDeduction(id);
-            const userDeductions = await api.getDeductions(user!.id);
+            const userDeductions = await api.getDeductions(user!.id, selectedBusinessId);
             setDeductions(userDeductions);
+            toast.success('Deducción eliminada');
         } catch (error) {
             console.error("Failed to delete deduction", error);
+            toast.error('Error al eliminar deducción');
         }
     };
 
@@ -417,37 +432,56 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             <div className="flex-1 px-5 space-y-6">
 
                 {/* Main KPI Card */}
-                <Card className="p-6 rounded-3xl border-none shadow-[0_2px_20px_-5px_rgba(0,0,0,0.05)] bg-white">
-                    <div className="flex justify-between items-start mb-3">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ganancia Neta</span>
-                        <span className="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">Actual</span>
-                    </div>
-                    <div className="mb-8">
-                        <span className={cn("text-4xl font-extrabold tracking-tight", finalBalance < 0 ? "text-red-500" : "text-green-600")}>
-                            {fmt(finalBalance)}
-                        </span>
-                    </div>
+                {/* Main KPI Card */}
+                <Card className="p-6 rounded-3xl border-none shadow-xl shadow-blue-900/5 bg-gradient-primary text-white relative overflow-hidden">
+                    {/* Background decoration */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-2xl" />
 
-                    <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ventas</p>
-                            <p className="text-sm font-bold text-gray-900">₡{fmtPlain(totalSales)}</p>
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs font-bold text-blue-100 uppercase tracking-widest">Ganancia Neta</span>
+                            <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10">Actual</span>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Premios</p>
-                            <p className="text-sm font-bold text-gray-900">₡{fmtPlain(totalPrizes)}</p>
+                        <div className="mb-8">
+                            <span className="text-5xl font-black tracking-tight text-white drop-shadow-sm">
+                                {fmt(finalBalance)}
+                            </span>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Comisión</p>
-                            <p className="text-sm font-bold text-gray-900">₡{fmtPlain(totalCommission)}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Adelantos</p>
-                            <p className="text-sm font-bold text-green-600">+₡{fmtPlain(totalAdvances)}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deducciones</p>
-                            <p className="text-sm font-bold text-red-500">-₡{fmtPlain(totalDeductions)}</p>
+
+                        <div className="grid grid-cols-3 gap-y-4 gap-x-2 border-t border-white/20 pt-5">
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-0.5">Ventas</p>
+                                <p className="text-sm font-bold text-white">₡{fmtPlain(totalSales)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-0.5">Premios</p>
+                                <p className="text-sm font-bold text-white">₡{fmtPlain(totalPrizes)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-0.5">Comisión</p>
+                                <p className="text-sm font-bold text-white">₡{fmtPlain(totalCommission)}</p>
+                            </div>
+                            <div className="col-span-3 flex justify-between items-center pt-2 mt-2 border-t border-white/10">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+                                        <Wallet className="h-3 w-3 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Adelantos</p>
+                                        <p className="text-xs font-bold text-green-300">+₡{fmtPlain(totalAdvances)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Deducciones</p>
+                                        <p className="text-xs font-bold text-red-300">-₡{fmtPlain(totalDeductions)}</p>
+                                    </div>
+                                    <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+                                        <Banknote className="h-3 w-3 text-white" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </Card>
@@ -462,10 +496,19 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
                             const isExpanded = expandedDay === date;
 
+                            const handleSave = async () => {
+                                await handleSaveClosure(closure);
+                                setExpandedDay(null);
+                                toast.success('Guardado correctamente', {
+                                    description: `Cierre del ${getDayName(date)} actualizado.`
+                                });
+                            };
+
                             return (
                                 <Card key={date} className={cn(
-                                    "overflow-hidden border-none shadow-sm rounded-2xl bg-white transition-all",
-                                    !isExpanded && "opacity-80 hover:opacity-100"
+                                    "overflow-hidden border-none shadow-sm rounded-2xl bg-white transition-all duration-300",
+                                    !isExpanded && "opacity-80 hover:opacity-100 hover:shadow-md",
+                                    isExpanded && "shadow-lg ring-1 ring-blue-100"
                                 )}>
                                     <button
                                         onClick={() => setExpandedDay(isExpanded ? null : date)}
@@ -473,19 +516,19 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={cn(
-                                                "h-10 w-10 flex items-center justify-center rounded-full font-bold text-lg",
-                                                isExpanded ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500"
+                                                "h-12 w-12 flex items-center justify-center rounded-2xl font-bold text-lg transition-colors",
+                                                isExpanded ? "bg-blue-600 text-white shadow-blue-200 shadow-lg" : "bg-gray-100 text-gray-500"
                                             )}>
                                                 {getDateInitial(date)}
                                             </div>
                                             <div className="text-left">
-                                                <p className="font-bold text-gray-900">{getDayName(date)}</p>
-                                                <p className="text-xs text-gray-400 font-medium">{date}</p>
+                                                <p className="font-bold text-gray-900 text-lg">{getDayName(date)}</p>
+                                                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{new Date(date).toLocaleDateString()}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             {!isExpanded && (
-                                                <span className="text-sm font-bold text-gray-900">₡{fmtPlain(closure.saleTotal)}</span>
+                                                <span className="text-sm font-bold text-gray-900 bg-gray-50 px-2.5 py-1 rounded-lg">₡{fmtPlain(closure.saleTotal)}</span>
                                             )}
                                             {isExpanded ? <ChevronUp className="h-5 w-5 text-gray-300" /> : <ChevronDown className="h-5 w-5 text-gray-300" />}
                                         </div>
@@ -493,16 +536,15 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
                                     {/* Expanded Content */}
                                     {isExpanded && (
-                                        <div className="px-5 pb-5 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="px-5 pb-5 animate-in slide-in-from-top-2 duration-300 fade-in-50">
                                             <div className="grid grid-cols-2 gap-4 mb-4">
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Venta</label>
-                                                    <div className="bg-gray-50 rounded-xl px-1 py-1 border border-transparent focus-within:border-blue-200 focus-within:bg-white transition-all">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Venta Total</label>
+                                                    <div className="bg-gray-50 rounded-2xl px-2 py-1 border border-transparent focus-within:border-blue-500/20 focus-within:bg-blue-50/50 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
                                                         <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10">₡</span>
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
                                                             <Input
-                                                                className="pl-12 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 p-2 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                style={{ paddingLeft: '1.5rem' }}
+                                                                className="pl-10 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 p-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
                                                                 value={closure.saleTotal === 0 ? '' : closure.saleTotal}
                                                                 onChange={(e) => handleClosureChange(closure.id, 'saleTotal', e.target.value)}
                                                                 type="number"
@@ -512,13 +554,12 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Premio</label>
-                                                    <div className="bg-gray-50 rounded-xl px-1 py-1 border border-transparent focus-within:border-blue-200 focus-within:bg-white transition-all">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Premios Pagados</label>
+                                                    <div className="bg-gray-50 rounded-2xl px-2 py-1 border border-transparent focus-within:border-blue-500/20 focus-within:bg-blue-50/50 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
                                                         <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10">₡</span>
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
                                                             <Input
-                                                                className="border-none bg-transparent shadow-none text-xl font-bold text-gray-900 p-2 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                                style={{ paddingLeft: '1.5rem' }}
+                                                                className="pl-10 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 p-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
                                                                 value={closure.prizesPaid === 0 ? '' : closure.prizesPaid}
                                                                 onChange={(e) => handleClosureChange(closure.id, 'prizesPaid', e.target.value)}
                                                                 type="number"
@@ -529,7 +570,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                                 </div>
                                             </div>
 
-                                            <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between mb-4">
+                                            <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between mb-4 border border-gray-100">
                                                 <div>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Comisión ({(closure.commissionPercentage * 100).toFixed(0)}%)</p>
                                                     <p className="text-lg font-bold text-blue-600">
@@ -538,15 +579,15 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Ganancia Día</p>
-                                                    <p className={cn("text-lg font-bold", closure.calculatedProfit < 0 ? "text-red-500" : "text-green-600")}>
+                                                    <p className={cn("text-2xl font-black tracking-tight", closure.calculatedProfit < 0 ? "text-red-500" : "text-green-600")}>
                                                         {fmt(closure.calculatedProfit)}
                                                     </p>
                                                 </div>
                                             </div>
 
                                             <Button
-                                                className="w-full rounded-xl font-bold bg-blue-600 hover:bg-blue-700 h-12 shadow-lg shadow-blue-200 ios-active"
-                                                onClick={() => handleSaveClosure(closure)}
+                                                className="w-full rounded-xl font-bold bg-gray-900 hover:bg-black text-white h-12 shadow-lg hover:shadow-xl transition-all active:scale-95"
+                                                onClick={handleSave}
                                             >
                                                 <Save className="w-4 h-4 mr-2" />
                                                 Guardar Cambios
@@ -702,36 +743,41 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             </div>
 
             {/* Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-10 pb-6 pt-3 px-6">
-                <div className="flex justify-between items-center max-w-md mx-auto">
-                    <button
-                        onClick={onBack}
-                        className="flex flex-col items-center gap-1 text-blue-600 transition-colors"
-                    >
-                        <Calendar className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">SEMANAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('sales')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <Wallet className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">VENTAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('reports')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <BarChart3 className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">REPORTES</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('profile')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <User className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">PERFIL</span>
-                    </button>
+            <div className="fixed bottom-0 left-0 w-full z-20 pointer-events-none">
+                <div className="max-w-md mx-auto px-6 pb-6 pt-0">
+                    <div className="bg-white/90 backdrop-blur-xl shadow-2xl border border-white/40 rounded-3xl pointer-events-auto flex justify-between items-center px-6 py-4">
+                        <button
+                            onClick={onBack}
+                            className="flex flex-col items-center gap-1 text-blue-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Calendar className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">SEMANAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('sales')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Wallet className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">VENTAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('reports')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <BarChart3 className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">REPORTES</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('profile')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <User className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">PERFIL</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

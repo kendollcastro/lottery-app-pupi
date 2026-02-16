@@ -19,7 +19,6 @@ import {
     DollarSign,
     Award,
     PieChart,
-    Download,
     Calendar,
     Wallet,
     BarChart3,
@@ -34,18 +33,18 @@ interface ReportsPageProps {
 }
 
 export function ReportsPage({ onNavigate }: ReportsPageProps) {
-    const { user } = useAppStore();
+    const { user, selectedBusinessId } = useAppStore();
     const [closures, setClosures] = React.useState<DailyClosure[]>([]);
     // const [loading, setLoading] = React.useState(true); // Unused
     const [range, setRange] = React.useState<'week' | 'month' | 'year'>('month');
 
     React.useEffect(() => {
         const loadData = async () => {
-            if (!user) return;
+            if (!user || !selectedBusinessId) return;
             // setLoading(true);
             try {
                 // Fetch all raw data and filter client-side for now
-                const data = await api.getAllClosures(user.id);
+                const data = await api.getAllClosures(user.id, selectedBusinessId);
                 // Sort by date asc
                 data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 setClosures(data);
@@ -54,7 +53,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             }
         };
         loadData();
-    }, [user]);
+    }, [user, selectedBusinessId]);
 
     // Helpers
     const fmt = (n: number) => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n);
@@ -134,129 +133,142 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
 
                 {/* KPI Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                    <Card className="p-4 border-none shadow-sm bg-blue-600 text-white rounded-2xl">
-                        <div className="flex items-center gap-3 mb-2 opacity-90">
-                            <div className="p-2 bg-white/20 rounded-lg">
+                    <Card className="p-5 border-none shadow-lg shadow-blue-900/5 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-3xl relative overflow-hidden col-span-2">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl" />
+                        <div className="flex items-center gap-3 mb-1 opacity-90 relative z-10">
+                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
                                 <TrendingUp className="h-5 w-5 text-white" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">Ganancia</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-blue-100">Ganancia Neta</span>
                         </div>
-                        <p className="text-2xl font-extrabold tracking-tight">
+                        <p className="text-4xl font-black tracking-tight relative z-10 mt-2">
                             {fmt(stats.totalProfit)}
                         </p>
                     </Card>
 
-                    <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
-                        <div className="flex items-center gap-3 mb-2 text-gray-500">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <DollarSign className="h-5 w-5 text-gray-600" />
+                    <Card className="p-4 border-none shadow-sm bg-white rounded-3xl">
+                        <div className="flex items-center gap-3 mb-3 text-gray-500">
+                            <div className="p-2.5 bg-blue-50 rounded-xl">
+                                <DollarSign className="h-5 w-5 text-blue-600" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">Ventas</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Ventas</span>
                         </div>
-                        <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                            {fmt(stats.totalSales)}
+                        <p className="text-xl font-bold tracking-tight text-gray-900">
+                            {fmtCompact(stats.totalSales)}
                         </p>
                     </Card>
 
-                    <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
-                        <div className="flex items-center gap-3 mb-2 text-gray-500">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <Award className="h-5 w-5 text-gray-600" />
+                    <Card className="p-4 border-none shadow-sm bg-white rounded-3xl">
+                        <div className="flex items-center gap-3 mb-3 text-gray-500">
+                            <div className="p-2.5 bg-amber-50 rounded-xl">
+                                <Award className="h-5 w-5 text-amber-600" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">Premios</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Premios</span>
                         </div>
-                        <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                            {fmt(stats.totalPrizes)}
+                        <p className="text-xl font-bold tracking-tight text-gray-900">
+                            {fmtCompact(stats.totalPrizes)}
                         </p>
                     </Card>
 
-                    <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
-                        <div className="flex items-center gap-3 mb-2 text-gray-500">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <PieChart className="h-5 w-5 text-gray-600" />
+                    <Card className="p-4 border-none shadow-sm bg-white rounded-3xl col-span-2 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-purple-50 rounded-xl">
+                                <PieChart className="h-5 w-5 text-purple-600" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">Comisión</span>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Comisión Generada</p>
+                                <p className="text-lg font-bold text-gray-900">{fmt(stats.totalCommission)}</p>
+                            </div>
                         </div>
-                        <p className="text-2xl font-extrabold tracking-tight text-gray-900">
-                            {fmt(stats.totalCommission)}
-                        </p>
+                        <div className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                            Est.
+                        </div>
                     </Card>
                 </div>
 
                 {/* Charts */}
-                <Card className="p-5 border-none shadow-sm rounded-3xl bg-white">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Tendencia de Ganancia</h3>
-                        <Button variant="ghost" size="sm" className="text-gray-400">
-                            <Download className="h-4 w-4" />
-                        </Button>
+                <Card className="p-6 border-none shadow-sm rounded-3xl bg-white">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Tendencia</h3>
+                            <p className="text-xs text-gray-400 font-medium mt-0.5">Ganancia en el tiempo</p>
+                        </div>
                     </div>
                     <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
+                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
                                         <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                 <XAxis
                                     dataKey="date"
-                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                    tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 500 }}
                                     axisLine={false}
                                     tickLine={false}
-                                    tickMargin={10}
+                                    tickMargin={15}
                                 />
                                 <YAxis
-                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                    tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 500 }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(val) => `₡${fmtCompact(val)}`}
                                 />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)', padding: '12px' }}
+                                    itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '12px' }}
+                                    labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase' }}
                                     formatter={(value: any) => [`₡${Number(value).toLocaleString()}`, '']}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="Ganancia"
                                     stroke="#2563eb"
-                                    strokeWidth={3}
+                                    strokeWidth={4}
                                     fillOpacity={1}
                                     fill="url(#colorProfit)"
+                                    activeDot={{ r: 6, strokeWidth: 4, stroke: '#fff' }}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </Card>
 
-                <Card className="p-5 border-none shadow-sm rounded-3xl bg-white">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Ventas vs Premios</h3>
+                <Card className="p-6 border-none shadow-sm rounded-3xl bg-white">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Comparativa</h3>
+                            <p className="text-xs text-gray-400 font-medium mt-0.5">Ventas vs Premios</p>
+                        </div>
                     </div>
                     <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                            <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }} barGap={4}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                 <XAxis
                                     dataKey="date"
-                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                    tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 500 }}
                                     axisLine={false}
                                     tickLine={false}
-                                    tickMargin={10}
+                                    tickMargin={15}
                                 />
                                 <YAxis
-                                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                                    tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 500 }}
                                     axisLine={false}
                                     tickLine={false}
                                     tickFormatter={(val) => `₡${fmtCompact(val)}`}
                                 />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    cursor={{ fill: '#f8fafc' }}
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)', padding: '12px' }}
+                                    itemStyle={{ fontWeight: 'bold', fontSize: '12px' }}
+                                    labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase' }}
                                 />
-                                <Bar dataKey="Ventas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="Premios" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Ventas" fill="#3b82f6" radius={[6, 6, 6, 6]} barSize={8} />
+                                <Bar dataKey="Premios" fill="#f43f5e" radius={[6, 6, 6, 6]} barSize={8} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -264,35 +276,40 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             </div>
 
             {/* Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-10 pb-6 pt-3 px-6">
-                <div className="flex justify-between items-center max-w-md mx-auto">
-                    <button
-                        onClick={() => onNavigate('weeks')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <Calendar className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">SEMANAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('sales')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <Wallet className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">VENTAS</span>
-                    </button>
-                    <button
-                        className="flex flex-col items-center gap-1 text-blue-600 transition-colors"
-                    >
-                        <BarChart3 className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">REPORTES</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('profile')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <User className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">PERFIL</span>
-                    </button>
+            <div className="fixed bottom-0 left-0 w-full z-20 pointer-events-none">
+                <div className="max-w-md mx-auto px-6 pb-6 pt-0">
+                    <div className="bg-white/90 backdrop-blur-xl shadow-2xl border border-white/40 rounded-3xl pointer-events-auto flex justify-between items-center px-6 py-4">
+                        <button
+                            onClick={() => onNavigate('weeks')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Calendar className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">SEMANAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('sales')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Wallet className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">VENTAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            className="flex flex-col items-center gap-1 text-blue-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <BarChart3 className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">REPORTES</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('profile')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <User className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">PERFIL</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

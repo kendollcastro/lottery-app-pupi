@@ -15,6 +15,7 @@ export interface Expense {
 export interface Deduction {
     id: string;
     userId: string;
+    businessId: string; // [NEW]
     amount: number;
     reason: string;
     date: string; // YYYY-MM-DD
@@ -24,6 +25,7 @@ export interface Deduction {
 export interface Advance {
     id: string;
     userId: string;
+    businessId: string; // [NEW]
     amount: number;
     reason: string;
     date: string; // YYYY-MM-DD
@@ -34,6 +36,7 @@ export interface DailyClosure {
     id: string;
     date: string; // YYYY-MM-DD
     userId: string;
+    businessId: string; // [NEW]
     saleTotal: number;
     prizesPaid: number;
     commissionPercentage: number; // e.g., 0.15 for 15%
@@ -60,4 +63,12 @@ export interface PeriodModules {
     viewName: string;
     startDate: string;
     endDate: string;
+}
+
+export interface Business {
+    id: string;
+    userId: string;
+    name: string;
+    active: boolean; // For soft delete or UI visibility
+    createdAt: string;
 }

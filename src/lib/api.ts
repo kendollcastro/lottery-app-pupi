@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { User, DailyClosure, Advance, Week, Deduction } from './types';
+import type { User, DailyClosure, Advance, Week, Deduction, Business } from './types';
 import { calculateProfit } from './calculations';
 
 export const api = {
@@ -23,6 +23,55 @@ export const api = {
             };
         }
         return null;
+    },
+
+    // Businesses
+    getBusinesses: async (userId: string): Promise<Business[]> => {
+        const { data, error } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching businesses:', error);
+            return [];
+        }
+
+        return data.map((b: any) => ({
+            id: b.id,
+            userId: b.user_id,
+            name: b.name,
+            active: b.is_active,
+            createdAt: b.created_at
+        }));
+    },
+
+    createBusiness: async (userId: string, name: string): Promise<Business> => {
+        const { data, error } = await supabase
+            .from('businesses')
+            .insert({ user_id: userId, name: name })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            id: data.id,
+            userId: data.user_id,
+            name: data.name,
+            active: data.is_active,
+            createdAt: data.created_at
+        };
+    },
+
+    deleteBusiness: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('businesses')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     },
 
     // Weeks
@@ -72,12 +121,22 @@ export const api = {
         };
     },
 
+    deleteWeek: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('weeks')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    },
+
     // Closures
-    getClosure: async (userId: string, date: string): Promise<DailyClosure | null> => {
+    getClosure: async (userId: string, date: string, businessId: string): Promise<DailyClosure | null> => {
         const { data, error } = await supabase
             .from('daily_closures')
             .select('*')
             .eq('user_id', userId)
+            .eq('business_id', businessId)
             .eq('date', date)
             .maybeSingle();
 
@@ -89,11 +148,12 @@ export const api = {
             return {
                 id: data.id,
                 userId: data.user_id,
+                businessId: data.business_id,
                 date: data.date,
                 saleTotal: Number(data.sale_total),
                 prizesPaid: Number(data.prizes_paid),
                 commissionPercentage: Number(data.commission_percentage),
-                expenses: [], // TODO: Add expenses table if needed
+                expenses: [],
                 calculatedProfit: calculateProfit(
                     Number(data.sale_total),
                     Number(data.prizes_paid),
@@ -105,11 +165,12 @@ export const api = {
         return null;
     },
 
-    getAllClosures: async (userId: string): Promise<DailyClosure[]> => {
+    getAllClosures: async (userId: string, businessId: string): Promise<DailyClosure[]> => {
         const { data, error } = await supabase
             .from('daily_closures')
             .select('*')
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .eq('business_id', businessId);
 
         if (error) {
             console.error('Error fetching all closures:', error);
@@ -119,6 +180,7 @@ export const api = {
         return data.map((c: any) => ({
             id: c.id,
             userId: c.user_id,
+            businessId: c.business_id,
             date: c.date,
             saleTotal: Number(c.sale_total),
             prizesPaid: Number(c.prizes_paid),
@@ -134,18 +196,17 @@ export const api = {
     },
 
     saveClosure: async (closure: DailyClosure): Promise<void> => {
-        // Upsert based on ID if present, or create new
-        // For simplicity with RLS and our logic:
         const { error } = await supabase
             .from('daily_closures')
             .upsert({
-                id: closure.id.startsWith('temp-') ? undefined : closure.id, // Let DB gen UUID if temp
+                id: closure.id.startsWith('temp-') ? undefined : closure.id,
                 user_id: closure.userId,
+                business_id: closure.businessId,
                 date: closure.date,
                 sale_total: closure.saleTotal,
                 prizes_paid: closure.prizesPaid,
                 commission_percentage: closure.commissionPercentage,
-            }, { onConflict: 'user_id, date' });
+            }, { onConflict: 'user_id, date, business_id' }); // Unique constraint must match DB
 
         if (error) {
             console.error('Error saving closure:', error);
@@ -154,11 +215,12 @@ export const api = {
     },
 
     // Advances
-    getAdvances: async (userId: string): Promise<Advance[]> => {
+    getAdvances: async (userId: string, businessId: string): Promise<Advance[]> => {
         const { data, error } = await supabase
             .from('advances')
             .select('*')
             .eq('user_id', userId)
+            .eq('business_id', businessId)
             .order('date', { ascending: false });
 
         if (error) {
@@ -169,6 +231,7 @@ export const api = {
         return data.map((a: any) => ({
             id: a.id,
             userId: a.user_id,
+            businessId: a.business_id,
             amount: Number(a.amount),
             reason: a.reason,
             date: a.date,
@@ -181,6 +244,7 @@ export const api = {
             .from('advances')
             .insert({
                 user_id: advance.userId,
+                business_id: advance.businessId,
                 amount: advance.amount,
                 reason: advance.reason,
                 date: advance.date
@@ -193,6 +257,7 @@ export const api = {
         return {
             id: data.id,
             userId: data.user_id,
+            businessId: data.business_id,
             amount: Number(data.amount),
             reason: data.reason,
             date: data.date,
@@ -210,11 +275,12 @@ export const api = {
     },
 
     // Deductions
-    getDeductions: async (userId: string): Promise<Deduction[]> => {
+    getDeductions: async (userId: string, businessId: string): Promise<Deduction[]> => {
         const { data, error } = await supabase
             .from('deductions')
             .select('*')
             .eq('user_id', userId)
+            .eq('business_id', businessId)
             .order('date', { ascending: false });
 
         if (error) {
@@ -225,6 +291,7 @@ export const api = {
         return data.map((d: any) => ({
             id: d.id,
             userId: d.user_id,
+            businessId: d.business_id,
             amount: Number(d.amount),
             reason: d.reason,
             date: d.date,
@@ -237,6 +304,7 @@ export const api = {
             .from('deductions')
             .insert({
                 user_id: data.userId,
+                business_id: data.businessId,
                 amount: data.amount,
                 reason: data.reason,
                 date: data.date
@@ -249,6 +317,7 @@ export const api = {
         return {
             id: newDed.id,
             userId: newDed.user_id,
+            businessId: newDed.business_id,
             amount: Number(newDed.amount),
             reason: newDed.reason,
             date: newDed.date,

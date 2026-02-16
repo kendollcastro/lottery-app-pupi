@@ -12,17 +12,17 @@ interface SalesPageProps {
 }
 
 export function SalesPage({ onNavigate }: SalesPageProps) {
-    const { user } = useAppStore();
+    const { user, selectedBusinessId } = useAppStore();
     const [currentDate, setCurrentDate] = React.useState(new Date());
     const [dateRange, setDateRange] = React.useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [closures, setClosures] = React.useState<DailyClosure[]>([]);
 
     // Fetch closures on mount
     React.useEffect(() => {
-        if (user) {
-            api.getAllClosures(user.id).then(setClosures);
+        if (user && selectedBusinessId) {
+            api.getAllClosures(user.id, selectedBusinessId).then(setClosures);
         }
-    }, [user]);
+    }, [user, selectedBusinessId]);
 
     // Helpers
     const getDaysInMonth = (date: Date) => {
@@ -140,24 +140,24 @@ export function SalesPage({ onNavigate }: SalesPageProps) {
                     key={i}
                     onClick={() => handleDateClick(date)}
                     className={cn(
-                        "h-10 w-10 mx-auto flex items-center justify-center text-sm font-medium transition-all relative z-10",
+                        "h-9 w-9 mx-auto flex items-center justify-center text-sm font-medium transition-all relative z-10",
                         // Shape
-                        isSelected ? "bg-blue-600 text-white rounded-full shadow-md z-20" : "rounded-full hover:bg-gray-100",
+                        isSelected ? "bg-blue-600 text-white rounded-full shadow-lg shadow-blue-200 z-20 scale-110" : "rounded-full hover:bg-gray-50",
                         // Range connector
                         isInRange && !isSelected ? "bg-blue-50 text-blue-700 rounded-none w-full mx-[-2px]" : "",
                         // Range ends rounding fix
                         isInRange && isRangeStart && !isRangeEnd ? "rounded-l-full rounded-r-none" : "",
                         isInRange && isRangeEnd && !isRangeStart ? "rounded-r-full rounded-l-none" : "",
 
-                        !isInRange && isToday ? "bg-gray-100 text-blue-600 font-bold" : "",
-                        closure && !isInRange ? "font-bold text-gray-900" : ""
+                        !isInRange && isToday && !isSelected ? "bg-gray-100 text-blue-600 font-bold" : "",
+                        closure && !isInRange && !isSelected ? "font-bold text-gray-900" : ""
                     )}
                 >
                     {i}
                     {closure && !isSelected && !isInRange && (
                         <div className={cn(
                             "absolute bottom-1 h-1 w-1 rounded-full",
-                            (closure.calculatedProfit || 0) >= 0 ? "bg-green-500" : "bg-red-500"
+                            (closure.calculatedProfit || 0) >= 0 ? "bg-emerald-400" : "bg-red-400"
                         )} />
                     )}
                 </button>
@@ -239,86 +239,106 @@ export function SalesPage({ onNavigate }: SalesPageProps) {
                 </div>
 
                 {/* Calendar Grid */}
-                <div className="bg-white rounded-3xl p-4 shadow-sm select-none">
+                <div className="bg-white rounded-3xl p-6 shadow-sm select-none border border-gray-100">
                     {/* Days Header */}
-                    <div className="grid grid-cols-7 mb-2 text-center">
+                    <div className="grid grid-cols-7 mb-4 text-center">
                         {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(d => (
-                            <span key={d} className="text-xs font-bold text-gray-400 py-1">{d}</span>
+                            <span key={d} className="text-xs font-bold text-gray-300 py-1">{d}</span>
                         ))}
                     </div>
                     {/* Days */}
-                    <div className="grid grid-cols-7 gap-y-2">
+                    <div className="grid grid-cols-7 gap-y-3">
                         {renderCalendarDays()}
                     </div>
                 </div>
 
                 {/* Summary Card */}
-                <Card className="p-5 border-none shadow-sm rounded-3xl bg-white space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                        <h3 className="font-bold text-gray-900">
-                            {formatRange()}
-                        </h3>
+                <Card className="p-6 border-none shadow-xl shadow-blue-900/5 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-3xl relative overflow-hidden">
+                    {/* Background decoration */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-2xl" />
+
+                    <div className="relative z-10 flex justify-between items-start pb-4 border-b border-white/20 mb-4">
+                        <div>
+                            <h3 className="font-bold text-lg text-white">
+                                {formatRange()}
+                            </h3>
+                            <p className="text-xs text-blue-100 font-medium opacity-80">Resumen del periodo</p>
+                        </div>
                         {dateRange.start && (
-                            <Button size="sm" variant="ghost" className="h-8 text-xs text-blue-600" onClick={() => setDateRange({ start: null, end: null })}>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-blue-100 hover:bg-white/10 hover:text-white"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateRange({ start: null, end: null });
+                                }}
+                            >
                                 Limpiar
                             </Button>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-blue-50 p-4 rounded-2xl">
-                            <p className="text-xs text-blue-600 font-bold uppercase mb-1">Ventas</p>
-                            <p className="text-lg font-extrabold text-blue-700">
+                    <div className="relative z-10 grid grid-cols-2 gap-6">
+                        <div>
+                            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-1">Ventas</p>
+                            <p className="text-2xl font-black tracking-tight text-white">
                                 {fmt(rangeSales)}
                             </p>
                         </div>
-                        <div className="bg-emerald-50 p-4 rounded-2xl">
-                            <p className="text-xs text-emerald-600 font-bold uppercase mb-1">Ganancia</p>
-                            <p className="text-lg font-extrabold text-emerald-700">
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-1">Ganancia</p>
+                            <p className="text-2xl font-black tracking-tight text-emerald-300">
                                 {fmt(rangeProfit)}
                             </p>
                         </div>
                     </div>
 
                     {!dateRange.start && (
-                        <div className="text-center py-2">
-                            <p className="text-xs text-gray-400">Selecciona un rango de fechas para ver el detalle.</p>
+                        <div className="relative z-10 mt-4 text-center py-2 bg-black/10 rounded-xl border border-white/5">
+                            <p className="text-xs text-blue-100 font-medium">Selecciona un rango de fechas para ver el detalle.</p>
                         </div>
                     )}
                 </Card>
             </div>
 
-            {/* Bottom Navigation -> Should be a component but adhering to current pattern */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-10 pb-6 pt-3 px-6">
-                <div className="flex justify-between items-center max-w-md mx-auto">
-                    <button
-                        onClick={() => onNavigate('weeks')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <CalendarIcon className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">SEMANAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('sales')}
-                        className="flex flex-col items-center gap-1 text-blue-600 transition-colors"
-                    >
-                        <Wallet className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">VENTAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('reports')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <BarChart3 className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">REPORTES</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('profile')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <UserIcon className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">PERFIL</span>
-                    </button>
+            {/* Bottom Navigation */}
+            <div className="fixed bottom-0 left-0 w-full z-20 pointer-events-none">
+                <div className="max-w-md mx-auto px-6 pb-6 pt-0">
+                    <div className="bg-white/90 backdrop-blur-xl shadow-2xl border border-white/40 rounded-3xl pointer-events-auto flex justify-between items-center px-6 py-4">
+                        <button
+                            onClick={() => onNavigate('weeks')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <CalendarIcon className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">SEMANAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('sales')}
+                            className="flex flex-col items-center gap-1 text-blue-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Wallet className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">VENTAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('reports')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <BarChart3 className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">REPORTES</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('profile')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <UserIcon className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">PERFIL</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

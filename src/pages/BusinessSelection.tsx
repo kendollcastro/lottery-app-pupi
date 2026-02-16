@@ -1,11 +1,14 @@
 import * as React from 'react';
+import { api } from '../lib/api';
 import { useAppStore } from '../lib/store';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Store, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function BusinessSelectionPage() {
-    const { setSelectedBusinessId } = useAppStore();
+    const { user, setSelectedBusinessId } = useAppStore();
 
     // Force light mode cleanup
     React.useEffect(() => {
@@ -13,26 +16,59 @@ export function BusinessSelectionPage() {
         localStorage.removeItem('theme');
     }, []);
 
-    const [businesses, setBusinesses] = React.useState([
-        { id: 'b1', name: 'Tiempos Pupi #3', active: true },
-        { id: 'b2', name: 'Tiempos Pupi #4', active: false },
-    ]);
+    const [businesses, setBusinesses] = React.useState<any[]>([]); // Use strict type if available
+    const [loading, setLoading] = React.useState(true);
     const [isCreating, setIsCreating] = React.useState(false);
     const [newBusinessName, setNewBusinessName] = React.useState('');
+    const [businessToDelete, setBusinessToDelete] = React.useState<any>(null);
 
-    const handleCreate = () => {
-        if (!newBusinessName.trim()) return;
-
-        const newBusiness = {
-            id: `b${Date.now()}`,
-            name: newBusinessName,
-            active: true
+    // Load businesses
+    React.useEffect(() => {
+        if (!user) return;
+        const load = async () => {
+            try {
+                const data = await api.getBusinesses(user.id);
+                setBusinesses(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
         };
+        load();
+    }, [user]);
 
-        setBusinesses([...businesses, newBusiness]);
-        setSelectedBusinessId(newBusiness.id); // Auto-select
-        setIsCreating(false);
-        setNewBusinessName('');
+    const handleCreate = async () => {
+        if (!newBusinessName.trim() || !user) return;
+
+        try {
+            const newBiz = await api.createBusiness(user.id, newBusinessName);
+            setBusinesses([newBiz, ...businesses]);
+            setSelectedBusinessId(newBiz.id); // Auto-select
+            setIsCreating(false);
+            setNewBusinessName('');
+        } catch (e) {
+            console.error(e);
+            alert('Error al crear negocio');
+        }
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent, business: any) => {
+        e.stopPropagation();
+        setBusinessToDelete(business);
+    };
+
+    const confirmDelete = async () => {
+        if (!businessToDelete) return;
+        try {
+            await api.deleteBusiness(businessToDelete.id);
+            setBusinesses(prev => prev.filter(b => b.id !== businessToDelete.id));
+            setBusinessToDelete(null);
+        } catch (e) {
+            console.error(e);
+            alert('Error al eliminar negocio');
+            setBusinessToDelete(null);
+        }
     };
 
     return (
@@ -88,23 +124,25 @@ export function BusinessSelectionPage() {
             ) : (
                 /* List */
                 <div className="space-y-4">
+                    {loading && <p className="text-center text-gray-400">Cargando negocios...</p>}
+
+                    {!loading && businesses.length === 0 && (
+                        <div className="text-center py-10">
+                            <p className="text-gray-400 mb-4">No tienes negocios registrados.</p>
+                        </div>
+                    )}
+
                     {businesses.map((business) => (
                         <Card
                             key={business.id}
                             className={cn(
-                                "p-5 flex items-center justify-between border-none shadow-sm cursor-pointer transition-all active:scale-[0.98] group",
-                                business.active
-                                    ? "bg-white"
-                                    : "bg-gray-100 opacity-60"
+                                "p-5 flex items-center justify-between border-none shadow-sm cursor-pointer transition-all active:scale-[0.98] group bg-white hover:shadow-md"
                             )}
                             onClick={() => setSelectedBusinessId(business.id)}
                         >
                             <div className="flex items-center gap-4">
                                 <div className={cn(
-                                    "h-10 w-10 rounded-full flex items-center justify-center font-bold text-lg",
-                                    business.active
-                                        ? "bg-blue-50 text-blue-600"
-                                        : "bg-gray-200 text-gray-500"
+                                    "h-10 w-10 rounded-full flex items-center justify-center font-bold text-lg bg-blue-50 text-blue-600"
                                 )}>
                                     {business.name.charAt(0)}
                                 </div>
@@ -112,18 +150,18 @@ export function BusinessSelectionPage() {
                                     <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                                         {business.name}
                                     </span>
-                                    <span className={cn(
-                                        "text-xs font-medium",
-                                        business.active ? "text-green-500" : "text-gray-400"
-                                    )}>
-                                        {business.active ? 'Activo' : 'Inactivo'}
+                                    <span className="text-xs font-medium text-green-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Seleccionar
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m9 18 6-6-6-6" /></svg>
-                            </div>
+                            <button
+                                onClick={(e) => handleDeleteClick(e, business)}
+                                className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                            </button>
                         </Card>
                     ))}
 
@@ -139,6 +177,23 @@ export function BusinessSelectionPage() {
                     </button>
                 </div>
             )}
+
+            <Modal
+                isOpen={!!businessToDelete}
+                onClose={() => setBusinessToDelete(null)}
+                title="Eliminar Negocio"
+                description={`¿Estás seguro de que deseas eliminar "${businessToDelete?.name}"? Esta acción no se puede deshacer y borrará todos los datos asociados.`}
+                footer={
+                    <div className="flex justify-end gap-3 w-full">
+                        <Button variant="ghost" onClick={() => setBusinessToDelete(null)} className="font-bold">
+                            Cancelar
+                        </Button>
+                        <Button variant="danger" onClick={confirmDelete} className="font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg">
+                            Eliminar
+                        </Button>
+                    </div>
+                }
+            />
         </div>
     );
 }

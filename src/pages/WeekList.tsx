@@ -18,6 +18,7 @@ import {
     User
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
 
 interface WeekListProps {
     onSelectWeek: (weekId: string) => void;
@@ -105,9 +106,10 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
 
             await init();
             setCreateModalOpen(false);
+            toast.success('Semana creada exitosamente');
         } catch (error) {
             console.error("Failed to create week:", error);
-            alert("Error al crear semana. Verifica que seas administrador.");
+            toast.error('Error al crear semana');
         } finally {
             setCreating(false);
         }
@@ -122,22 +124,23 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
     const executeDelete = async () => {
         if (!weekToDelete) return;
 
-        // Similarly, deleteWeek might not be in api.ts yet.
-        alert("Eliminar semanas es solo para administradores.");
-        setDeleteModalOpen(false);
-        setWeekToDelete(null);
+        // Basic role check
+        if (user?.role !== 'admin') {
+            alert("Eliminar semanas es solo para administradores.");
+            return;
+        }
 
-        /*
         try {
             await api.deleteWeek(weekToDelete);
+            // Optimistic update or refresh
             await init();
             setDeleteModalOpen(false);
             setWeekToDelete(null);
-        } catch (err) {
+            toast.success('Semana eliminada');
+        } catch (err: any) {
             console.error("Failed to delete week", err);
-            alert("Error al eliminar la semana");
+            toast.error(`Error al eliminar: ${err.message || 'Error desconocido'}`);
         }
-        */
     };
 
     return (
@@ -311,36 +314,41 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
             </div>
 
             {/* Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-10 pb-6 pt-3 px-6">
-                <div className="flex justify-between items-center max-w-md mx-auto">
-                    <button
-                        onClick={() => onNavigate('weeks')}
-                        className="flex flex-col items-center gap-1 text-blue-600"
-                    >
-                        <Calendar className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">SEMANAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('sales')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <Wallet className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">VENTAS</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('reports')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <BarChart3 className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">REPORTES</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('profile')}
-                        className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <User className="h-6 w-6" />
-                        <span className="text-[10px] font-bold">PERFIL</span>
-                    </button>
+            <div className="fixed bottom-0 left-0 w-full z-20 pointer-events-none">
+                <div className="max-w-md mx-auto px-6 pb-6 pt-0">
+                    <div className="bg-white/90 backdrop-blur-xl shadow-2xl border border-white/40 rounded-3xl pointer-events-auto flex justify-between items-center px-6 py-4">
+                        <button
+                            onClick={() => onNavigate('weeks')}
+                            className="flex flex-col items-center gap-1 text-blue-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Calendar className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">SEMANAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('sales')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <Wallet className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">VENTAS</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('reports')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <BarChart3 className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">REPORTES</span>
+                        </button>
+                        <div className="w-px h-8 bg-gray-100" />
+                        <button
+                            onClick={() => onNavigate('profile')}
+                            className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 duration-200"
+                        >
+                            <User className="h-6 w-6" />
+                            <span className="text-[10px] font-bold">PERFIL</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

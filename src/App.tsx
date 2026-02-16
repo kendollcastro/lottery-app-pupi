@@ -13,6 +13,7 @@ import { RegisterPage } from './pages/Register';
 
 import { supabase } from './lib/supabase';
 import { api } from './lib/api';
+import { Toaster } from 'sonner';
 
 function App() {
   const { user, setUser, selectedBusinessId } = useAppStore();
@@ -65,6 +66,7 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <Toaster position="top-center" />
       </div>
     );
   }
@@ -74,12 +76,14 @@ function App() {
       return (
         <div className="bg-[#F8F9FB] min-h-screen text-gray-900 font-sans">
           <RegisterPage onBack={() => setIsRegistering(false)} />
+          <Toaster position="top-center" richColors />
         </div>
       );
     }
     return (
       <div className="bg-[#F8F9FB] min-h-screen text-gray-900 font-sans">
         <LoginPage onRegisterClick={() => setIsRegistering(true)} />
+        <Toaster position="top-center" richColors />
       </div>
     );
   }
@@ -89,6 +93,7 @@ function App() {
     return (
       <Layout>
         <BusinessSelectionPage />
+        <Toaster position="top-center" richColors />
       </Layout>
     );
   }
@@ -105,6 +110,7 @@ function App() {
             setCurrentView(page);
           }}
         />
+        <Toaster position="top-center" richColors />
       </Layout>
     );
   }
@@ -117,6 +123,7 @@ function App() {
     return (
       <Layout>
         <ProfilePage onNavigate={setCurrentView} />
+        <Toaster position="top-center" richColors />
       </Layout>
     );
   }
@@ -126,6 +133,7 @@ function App() {
     return (
       <Layout>
         <SalesPage onNavigate={setCurrentView} />
+        <Toaster position="top-center" richColors />
       </Layout>
     );
   }
@@ -135,6 +143,7 @@ function App() {
     return (
       <Layout>
         <ReportsPage onNavigate={setCurrentView} />
+        <Toaster position="top-center" richColors />
       </Layout>
     );
   }
@@ -154,6 +163,7 @@ function App() {
         onSelectWeek={setSelectedWeekId}
         onNavigate={setCurrentView}
       />
+      <Toaster position="top-center" richColors />
     </Layout>
   );
 }
