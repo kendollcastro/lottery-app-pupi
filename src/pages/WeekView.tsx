@@ -549,9 +549,9 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Venta Total</label>
                                                     <div className="bg-gray-50 rounded-2xl px-2 py-1 border border-transparent focus-within:border-blue-500/20 focus-within:bg-blue-50/50 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
                                                         <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
+                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
                                                             <Input
-                                                                className="pl-12 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 py-3 pr-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
+                                                                className="pl-16 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 py-3 pr-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
                                                                 value={closure.saleTotal === 0 ? '' : closure.saleTotal}
                                                                 onChange={(e) => handleClosureChange(closure.id, 'saleTotal', e.target.value)}
                                                                 type="number"
@@ -564,9 +564,9 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Premios Pagados</label>
                                                     <div className="bg-gray-50 rounded-2xl px-2 py-1 border border-transparent focus-within:border-blue-500/20 focus-within:bg-blue-50/50 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
                                                         <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
+                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none z-10 text-lg">₡</span>
                                                             <Input
-                                                                className="pl-12 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 py-3 pr-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
+                                                                className="pl-16 border-none bg-transparent shadow-none text-xl font-bold text-gray-900 py-3 pr-3 h-auto focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full"
                                                                 value={closure.prizesPaid === 0 ? '' : closure.prizesPaid}
                                                                 onChange={(e) => handleClosureChange(closure.id, 'prizesPaid', e.target.value)}
                                                                 type="number"
