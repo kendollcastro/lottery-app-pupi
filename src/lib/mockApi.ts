@@ -11,6 +11,7 @@ const MOCK_USERS: User[] = [
 const MOCK_WEEKS: Week[] = [
     {
         id: 'w1',
+        businessId: 'b1',
         name: 'Semana 19 Enero',
         startDate: '2026-01-12', // Monday
         endDate: '2026-01-18',
@@ -19,6 +20,7 @@ const MOCK_WEEKS: Week[] = [
     },
     {
         id: 'w2',
+        businessId: 'b1',
         name: 'Semana 12 Enero',
         startDate: '2026-01-05', // Monday
         endDate: '2026-01-11',
@@ -27,6 +29,7 @@ const MOCK_WEEKS: Week[] = [
     },
     {
         id: 'w3',
+        businessId: 'b1',
         name: 'Semana 05 Enero',
         startDate: '2025-12-29', // Monday
         endDate: '2026-01-04',
@@ -113,6 +116,7 @@ export const mockApi = {
 
         const newWeek: Week = {
             id: `w${Date.now()}`,
+            businessId: 'b1',
             name,
             startDate: monday.toISOString().split('T')[0],
             endDate: new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
