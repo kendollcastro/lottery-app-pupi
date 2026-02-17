@@ -2,11 +2,47 @@ import { supabase } from './supabase';
 import type { User, DailyClosure, Advance, Week, Deduction, Business } from './types';
 import { calculateProfit } from './calculations';
 
+// Helper for retrying failed requests (network or abort errors)
+async function safeFetch<T>(
+    operation: () => Promise<{ data: T | null; error: any }>,
+    retries = 3,
+    delay = 500
+): Promise<T | null> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { data, error } = await operation();
+            if (error) throw error;
+            return data;
+        } catch (err: any) {
+            const isAbort = err.name === 'AbortError' || err.message?.includes('aborted');
+            const isNetwork = err.message?.includes('Failed to fetch') || err.message?.includes('Network request failed');
+
+            // If it's the last attempt, return null (and let the caller handle default)
+            if (i === retries - 1) {
+                console.error(`Operation failed after ${retries} attempts:`, err);
+                return null;
+            }
+
+            // Retry only on Abort or Network errors
+            if (isAbort || isNetwork) {
+                console.warn(`Attempt ${i + 1} failed (${err.message}), retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay * (i + 1))); // Exponential backoff
+                continue;
+            }
+
+            // Limit exceeded or other error
+            console.error("Operation failed non-retryable error:", err);
+            return null;
+        }
+    }
+    return null;
+}
+
 export const api = {
     // Auth & Profile
     getCurrentUser: async (): Promise<User | null> => {
         try {
-            // Create a timeout promise that rejects after 30 seconds
+            // Create a timeout promise that rejects after 10 seconds
             const timeoutPromise = new Promise<null>((_, reject) => {
                 setTimeout(() => reject(new Error('Request timed out')), 10000);
             });
@@ -48,18 +84,17 @@ export const api = {
 
     // Businesses
     getBusinesses: async (userId: string): Promise<Business[]> => {
-        const { data, error } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        const data = await safeFetch(async () => {
+            return await supabase
+                .from('businesses')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+        });
 
-        if (error) {
-            console.error('Error fetching businesses:', error);
-            return [];
-        }
+        if (!data) return [];
 
-        return data.map((b: any) => ({
+        return (data as any[]).map((b: any) => ({
             id: b.id,
             userId: b.user_id,
             name: b.name,
