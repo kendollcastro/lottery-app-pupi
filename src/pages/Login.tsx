@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useAppStore } from '../lib/store';
+
 import { Button } from '../components/ui/Button';
 import {
     Loader2,
@@ -22,7 +22,7 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
-    const { setSession } = useAppStore();
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
