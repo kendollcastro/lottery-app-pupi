@@ -53,7 +53,10 @@ function App() {
             attempts++;
             profile = await api.getCurrentUser();
           } catch (err) {
-            console.warn(`Profile fetch attempt ${attempts} failed:`, err);
+            // Log only on final attempt or specific errors, otherwise keep it quiet
+            if (attempts === 3) {
+              console.warn(`Profile fetch attempt ${attempts} failed:`, err);
+            }
             if (attempts < 3) await new Promise(r => setTimeout(r, 1000)); // Wait 1s between retries
           }
         }

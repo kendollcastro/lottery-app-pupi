@@ -6,9 +6,9 @@ export const api = {
     // Auth & Profile
     getCurrentUser: async (): Promise<User | null> => {
         try {
-            // Create a timeout promise that rejects after 5 seconds
+            // Create a timeout promise that rejects after 30 seconds
             const timeoutPromise = new Promise<null>((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out')), 5000);
+                setTimeout(() => reject(new Error('Request timed out')), 30000);
             });
 
             // The actual fetch operation
@@ -20,7 +20,7 @@ export const api = {
                     .from('profiles')
                     .select('*')
                     .eq('id', session.user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (error) {
                     console.error("Error fetching profile:", error);
