@@ -12,7 +12,7 @@ import {
 import { cn } from '../lib/utils';
 
 import { supabase } from '../lib/supabase';
-import { api } from '../lib/api';
+
 
 export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) {
     const [email, setEmail] = React.useState('');
@@ -22,7 +22,7 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
-    const { setUser, setSession } = useAppStore();
+    const { setSession } = useAppStore();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
