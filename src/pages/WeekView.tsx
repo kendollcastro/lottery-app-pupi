@@ -73,19 +73,30 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             if (!user || !selectedBusinessId) return;
             setLoading(true);
             try {
-                // 1. Fetch Week Details
-                const allWeeks = await api.getWeeks();
+                // Parallel Fetch Phase 1: Get critical data
+                const [allWeeks, allAdvances, allDeductions, weekClosures] = await Promise.all([
+                    api.getWeeks(),
+                    api.getAdvances(user.id, selectedBusinessId),
+                    api.getDeductions(user.id, selectedBusinessId),
+                    // Optimization: We can't fetch specific daily closures yet without the week,
+                    // but we can fetch ALL closures for this user/business and filter locally
+                    // since the dataset is likely small per user per business.
+                    // This avoids the double-await waterfall.
+                    api.getAllClosures(user.id, selectedBusinessId)
+                ]);
+
                 const currentWeek = allWeeks.find(w => w.id === weekId);
                 setWeek(currentWeek || null);
+                setAdvances(allAdvances);
+                setDeductions(allDeductions);
 
                 if (currentWeek) {
-                    const dates = getDaysArray(currentWeek.startDate, currentWeek.endDate);
+                    const weekDates = getDaysArray(currentWeek.startDate, currentWeek.endDate);
 
-                    // 2. Fetch Closures for each day
-                    const closurePromises = dates.map(async (date) => {
-                        const existing = await api.getClosure(user.id, date, selectedBusinessId);
+                    // Build Closure List (Merge existing with temps)
+                    const mergedClosures = weekDates.map(date => {
+                        const existing = weekClosures.find(c => c.date === date);
                         if (existing) return existing;
-
                         return {
                             id: `temp-${date}`,
                             userId: user.id,
@@ -98,39 +109,35 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                             calculatedProfit: 0
                         } as DailyClosure;
                     });
-
-                    const fetchedClosures = await Promise.all(closurePromises);
-                    setClosures(fetchedClosures);
+                    setClosures(mergedClosures);
 
                     // Expand the current day (or first day)
                     const today = new Date().toISOString().split('T')[0];
-                    if (dates.includes(today)) {
+                    if (weekDates.includes(today)) {
                         setExpandedDay(today);
                     } else {
-                        setExpandedDay(dates[0]);
+                        setExpandedDay(weekDates[0]);
                     }
 
-                    // 4. Find Previous Week & Balance
-                    // Logic: simply find the week immediately before.
+                    // Calculate Previous Week Balance from the loaded data
+                    // We already fetched ALL closures/advances/deductions, so we can compute this instantly via filter
+                    // WITHOUT another network call.
                     const sorted = [...allWeeks].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
                     const currentIndex = sorted.findIndex(w => w.id === currentWeek.id);
                     const prev = sorted[currentIndex + 1];
 
                     if (prev) {
                         setPrevWeek(prev);
-                        // Calculate its balance
-                        const prevClosures = await api.getAllClosures(user.id, selectedBusinessId);
                         const prevWeekDays = getDaysArray(prev.startDate, prev.endDate);
-                        const relevantClosures = prevClosures.filter(c => prevWeekDays.includes(c.date));
-                        const prevProfit = relevantClosures.reduce((sum, c) => sum + (c.calculatedProfit || 0), 0);
 
-                        const allAdvances = await api.getAdvances(user.id, selectedBusinessId);
-                        const prevAdvances = allAdvances.filter(a => a.date >= prev.startDate && a.date <= prev.endDate);
-                        const prevAdvTotal = prevAdvances.reduce((sum, a) => sum + a.amount, 0);
+                        const prevClosuresValid = weekClosures.filter(c => prevWeekDays.includes(c.date));
+                        const prevProfit = prevClosuresValid.reduce((sum, c) => sum + (c.calculatedProfit || 0), 0);
 
-                        const allDeductions = await api.getDeductions(user.id, selectedBusinessId);
-                        const prevDeductions = allDeductions.filter(d => d.date >= prev.startDate && d.date <= prev.endDate);
-                        const prevDedTotal = prevDeductions.reduce((sum, d) => sum + d.amount, 0);
+                        const prevAdvancesValid = allAdvances.filter(a => a.date >= prev.startDate && a.date <= prev.endDate);
+                        const prevAdvTotal = prevAdvancesValid.reduce((sum, a) => sum + a.amount, 0);
+
+                        const prevDeductionsValid = allDeductions.filter(d => d.date >= prev.startDate && d.date <= prev.endDate);
+                        const prevDedTotal = prevDeductionsValid.reduce((sum, d) => sum + d.amount, 0);
 
                         setPrevWeekBalance(prevProfit + prevAdvTotal - prevDedTotal);
                     } else {
@@ -138,14 +145,6 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                         setPrevWeekBalance(null);
                     }
                 }
-
-                // 3. Fetch Advances
-                const userAdvances = await api.getAdvances(user.id, selectedBusinessId);
-                setAdvances(userAdvances);
-
-                // 4. Fetch Deductions
-                const userDeductions = await api.getDeductions(user.id, selectedBusinessId);
-                setDeductions(userDeductions);
             } finally {
                 setLoading(false);
             }
@@ -331,12 +330,20 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
         }
     };
 
-    const handleDeleteDeduction = async (id: string) => {
-        if (!confirm('¿Eliminar esta deducción?') || !selectedBusinessId) return;
+    // Deduction Delete Modal State
+    const [deductionToDelete, setDeductionToDelete] = React.useState<string | null>(null);
+
+    const handleDeleteDeduction = (id: string) => {
+        setDeductionToDelete(id);
+    };
+
+    const confirmDeleteDeduction = async () => {
+        if (!deductionToDelete || !selectedBusinessId) return;
         try {
-            await api.deleteDeduction(id);
+            await api.deleteDeduction(deductionToDelete);
             const userDeductions = await api.getDeductions(user!.id, selectedBusinessId);
             setDeductions(userDeductions);
+            setDeductionToDelete(null);
             toast.success('Deducción eliminada');
         } catch (error) {
             console.error("Failed to delete deduction", error);
@@ -811,6 +818,34 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                 </div>
             </Modal>
 
-        </div >
+            <Modal
+                isOpen={!!deductionToDelete}
+                onClose={() => setDeductionToDelete(null)}
+                title="Eliminar Deducción"
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-600">
+                        ¿Estás seguro de que deseas eliminar esta deducción? Esta acción afectará el balance de la semana.
+                    </p>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => setDeductionToDelete(null)}
+                            disabled={loading}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                            onClick={confirmDeleteDeduction}
+                            disabled={loading}
+                        >
+                            Eliminar
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+        </div>
     );
 }

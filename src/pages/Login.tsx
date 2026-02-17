@@ -32,6 +32,10 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
         try {
             console.log("Calling supabase.auth.signInWithPassword...");
+
+            // Safety measure: ensure no stale session exists
+            await supabase.auth.signOut();
+
             const { data, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,

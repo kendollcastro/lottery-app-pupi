@@ -5,24 +5,45 @@ import { calculateProfit } from './calculations';
 export const api = {
     // Auth & Profile
     getCurrentUser: async (): Promise<User | null> => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return null;
+        try {
+            // Create a timeout promise that rejects after 5 seconds
+            const timeoutPromise = new Promise<null>((_, reject) => {
+                setTimeout(() => reject(new Error('Request timed out')), 5000);
+            });
 
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+            // The actual fetch operation
+            const fetchPromise = (async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.user) return null;
 
-        if (profile) {
-            return {
-                id: profile.id,
-                name: profile.name,
-                username: profile.username,
-                role: profile.role as 'user' | 'admin'
-            };
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (error) {
+                    console.error("Error fetching profile:", error);
+                    return null;
+                }
+
+                if (profile) {
+                    return {
+                        id: profile.id,
+                        name: profile.name,
+                        username: profile.username,
+                        role: profile.role as 'user' | 'admin'
+                    };
+                }
+                return null;
+            })();
+
+            // Race the fetch against the timeout
+            return await Promise.race([fetchPromise, timeoutPromise]);
+        } catch (error) {
+            console.error("getCurrentUser failed:", error);
+            return null;
         }
-        return null;
     },
 
     // Businesses
