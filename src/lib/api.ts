@@ -8,7 +8,7 @@ export const api = {
         try {
             // Create a timeout promise that rejects after 30 seconds
             const timeoutPromise = new Promise<null>((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out')), 30000);
+                setTimeout(() => reject(new Error('Request timed out')), 10000);
             });
 
             // The actual fetch operation

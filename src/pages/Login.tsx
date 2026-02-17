@@ -26,43 +26,26 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Login attempt started for:", email);
         setLoading(true);
         setError('');
 
         try {
-            console.log("Calling supabase.auth.signInWithPassword...");
-
             // Safety measure: ensure no stale session exists
             await supabase.auth.signOut();
 
-            const { data, error: authError } = await supabase.auth.signInWithPassword({
+            const { error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
-            console.log("SignIn response:", { data, authError });
 
             if (authError) throw authError;
 
-            if (data.session) {
-                console.log("Session found, setting session...");
-                setSession(data.session);
-                console.log("Fetching user profile...");
-                const userProfile = await api.getCurrentUser();
-                console.log("Profile result:", userProfile);
+            // Successful login will trigger onAuthStateChange in App.tsx
+            // We just wait for the user to be set in the store, which unmounts this page.
 
-                if (userProfile) {
-                    setUser(userProfile);
-                } else {
-                    console.error("Profile not found in DB");
-                    setError("Usuario autenticado pero sin perfil. Contacta soporte.");
-                }
-            }
         } catch (err: any) {
             console.error("Login Error:", err);
             setError(err.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : 'Error al iniciar sesión');
-        } finally {
-            console.log("Login flow finished, setLoading(false)");
             setLoading(false);
         }
     };

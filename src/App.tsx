@@ -45,48 +45,38 @@ function App() {
       console.log("Auth Event:", event);
 
       if (session?.user) {
-        // Retry logic for profile fetching
-        let profile = null;
-        let attempts = 0;
-        while (!profile && attempts < 3) {
-          try {
-            attempts++;
-            profile = await api.getCurrentUser();
-          } catch (err) {
-            // Log only on final attempt or specific errors, otherwise keep it quiet
-            if (attempts === 3) {
-              console.warn(`Profile fetch attempt ${attempts} failed:`, err);
-            }
-            if (attempts < 3) await new Promise(r => setTimeout(r, 1000)); // Wait 1s between retries
-          }
-        }
+        // Immediate UI Update (Stale-While-Revalidate pattern)
+        // Construct a temporary user from the session so the UI loads instantly.
+        const temporaryUser = {
+          id: session.user.id,
+          name: session.user.email?.split('@')[0] || 'Usuario',
+          username: session.user.email || 'usuario',
+          role: 'user' as const
+        };
 
-        if (profile) {
-          setUser(profile);
-          useAppStore.getState().setSession(session);
-        } else {
-          console.error("Failed to fetch profile after retries. Using fallback.");
-          // Fallback: Create a temporary user object from the session to allow login
-          const fallbackUser = {
-            id: session.user.id,
-            name: session.user.email?.split('@')[0] || 'Usuario', // Use email prefix as name
-            username: session.user.email || 'usuario',
-            role: 'user' as const // Default role, safer than assuming admin
-          };
-          setUser(fallbackUser);
-          useAppStore.getState().setSession(session);
-          // Notify user of partial load
-          import('sonner').then(m => m.toast.warning('Conexión inestable: Perfil cargado parcialmente.'));
-        }
+        // Set user immediately to unblock UI
+        setUser(temporaryUser);
+        useAppStore.getState().setSession(session);
+        setLoading(false);
+
+        // Background Fetch: Try to get the real profile
+        api.getCurrentUser().then((profile) => {
+          if (profile) {
+            console.log("Profile hydration successful");
+            setUser(profile);
+          }
+        }).catch((err) => {
+          console.warn("Background profile fetch failed, using session fallback:", err);
+        });
+
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         useAppStore.getState().setSession(null);
+        setLoading(false);
       } else if (event === 'INITIAL_SESSION' && !session) {
-        // Explicitly handle no session found on init
         setUser(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     // Fallback safety
