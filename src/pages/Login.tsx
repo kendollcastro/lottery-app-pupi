@@ -30,8 +30,7 @@ export function LoginPage({ onRegisterClick }: { onRegisterClick: () => void }) 
         setError('');
 
         try {
-            // Safety measure: ensure no stale session exists
-            await supabase.auth.signOut();
+
 
             const { error: authError } = await supabase.auth.signInWithPassword({
                 email,
