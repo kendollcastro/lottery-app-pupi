@@ -53,7 +53,7 @@ export function ReportsPage({ onNavigate }: ReportsPageProps) {
             }
         };
         loadData();
-    }, [user, selectedBusinessId]);
+    }, [user?.id, selectedBusinessId]);
 
     // Helpers
     const fmt = (n: number) => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n);

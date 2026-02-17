@@ -48,6 +48,7 @@ export interface DailyClosure {
 
 export interface Week {
     id: string;
+    businessId: string; // [NEW]
     name: string;
     startDate: string; // YYYY-MM-DD
     endDate: string;   // YYYY-MM-DD

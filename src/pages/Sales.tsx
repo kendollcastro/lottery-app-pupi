@@ -22,7 +22,7 @@ export function SalesPage({ onNavigate }: SalesPageProps) {
         if (user && selectedBusinessId) {
             api.getAllClosures(user.id, selectedBusinessId).then(setClosures);
         }
-    }, [user, selectedBusinessId]);
+    }, [user?.id, selectedBusinessId]);
 
     // Helpers
     const getDaysInMonth = (date: Date) => {

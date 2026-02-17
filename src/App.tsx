@@ -45,21 +45,26 @@ function App() {
       console.log("Auth Event:", event);
 
       if (session?.user) {
-        // Immediate UI Update (Stale-While-Revalidate pattern)
-        // Construct a temporary user from the session so the UI loads instantly.
-        const temporaryUser = {
-          id: session.user.id,
-          name: session.user.email?.split('@')[0] || 'Usuario',
-          username: session.user.email || 'usuario',
-          role: 'user' as const
-        };
+        const currentUser = useAppStore.getState().user;
+        // Only update if user is missing or ID changed to prevent re-renders
+        if (!currentUser || currentUser.id !== session.user.id) {
+          // Immediate UI Update (Stale-While-Revalidate pattern)
+          const temporaryUser = {
+            id: session.user.id,
+            name: session.user.email?.split('@')[0] || 'Usuario',
+            username: session.user.email || 'usuario',
+            role: 'user' as const
+          };
+          setUser(temporaryUser);
+        }
 
-        // Set user immediately to unblock UI
-        setUser(temporaryUser);
         useAppStore.getState().setSession(session);
         setLoading(false);
 
         // Background Fetch: Try to get the real profile
+        // Add a small delay to allow Supabase auth lock to settle/release
+        await new Promise(r => setTimeout(r, 500));
+
         api.getCurrentUser().then((profile) => {
           if (profile) {
             console.log("Profile hydration successful");

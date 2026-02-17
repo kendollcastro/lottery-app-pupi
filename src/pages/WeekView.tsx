@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import type { DailyClosure, Advance, Week, Deduction } from '../lib/types';
 import { calculateProfit } from '../lib/calculations';
 import { Card } from '../components/ui/Card';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -75,7 +76,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             try {
                 // Parallel Fetch Phase 1: Get critical data
                 const [allWeeks, allAdvances, allDeductions, weekClosures] = await Promise.all([
-                    api.getWeeks(),
+                    api.getWeeks(selectedBusinessId),
                     api.getAdvances(user.id, selectedBusinessId),
                     api.getDeductions(user.id, selectedBusinessId),
                     // Optimization: We can't fetch specific daily closures yet without the week,
@@ -111,13 +112,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                     });
                     setClosures(mergedClosures);
 
-                    // Expand the current day (or first day)
-                    const today = new Date().toISOString().split('T')[0];
-                    if (weekDates.includes(today)) {
-                        setExpandedDay(today);
-                    } else {
-                        setExpandedDay(weekDates[0]);
-                    }
+                    // setExpandedDay(null); // Default to closed per user request
 
                     // Calculate Previous Week Balance from the loaded data
                     // We already fetched ALL closures/advances/deductions, so we can compute this instantly via filter
@@ -150,7 +145,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
             }
         };
         init();
-    }, [user, weekId, selectedBusinessId]);
+    }, [user?.id, weekId, selectedBusinessId]);
 
     // Calculations
     const totalProfit = React.useMemo(() => {
@@ -394,8 +389,32 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
     if (loading) {
         return (
-            <div className="flex flex-col min-h-screen bg-[#F8F9FB] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <div className="flex flex-col min-h-screen bg-[#F8F9FB] pb-20 animate-in fade-in duration-500">
+                {/* Header Skeleton */}
+                <div className="px-5 pt-6 pb-2 mb-4">
+                    <div className="flex justify-between items-start mb-4">
+                        <Skeleton className="h-8 w-20 rounded-lg" /> {/* Back button */}
+                    </div>
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-48 rounded-lg" /> {/* Title */}
+                        <Skeleton className="h-4 w-32 rounded-md" /> {/* Date range */}
+                    </div>
+                </div>
+
+                <div className="flex-1 px-5 space-y-6">
+                    {/* KPI Card Skeleton */}
+                    <Skeleton className="h-64 w-full rounded-3xl shadow-sm" />
+
+                    {/* Daily Detail Skeleton */}
+                    <div>
+                        <Skeleton className="h-4 w-32 mb-4 ml-1 rounded-md" /> {/* Header */}
+                        <div className="space-y-3">
+                            {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                                <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -440,19 +459,19 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
 
                 {/* Main KPI Card */}
                 {/* Main KPI Card */}
-                <Card className="p-6 rounded-3xl border-none shadow-xl shadow-blue-900/5 bg-gradient-primary text-white relative overflow-hidden">
+                <Card className="z-0 p-6 rounded-3xl border-none shadow-xl shadow-blue-900/5 bg-gradient-primary text-white relative overflow-hidden">
                     {/* Background decoration */}
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-2xl" />
 
                     <div className="relative z-10">
                         <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs font-bold text-blue-100 uppercase tracking-widest">Ganancia Neta</span>
+                            <span className="text-xs font-bold text-blue-100 uppercase tracking-widest">Ganancia Comisión</span>
                             <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10">Actual</span>
                         </div>
                         <div className="mb-8">
                             <span className="text-5xl font-black tracking-tight text-white drop-shadow-sm">
-                                {fmt(finalBalance)}
+                                ₡{fmtPlain(totalCommission)}
                             </span>
                         </div>
 
@@ -466,8 +485,8 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                 <p className="text-sm font-bold text-white">₡{fmtPlain(totalPrizes)}</p>
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-0.5">Comisión</p>
-                                <p className="text-sm font-bold text-white">₡{fmtPlain(totalCommission)}</p>
+                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-0.5">Ganancia Banquero</p>
+                                <p className="text-sm font-bold text-white">₡{fmtPlain(finalBalance)}</p>
                             </div>
                             <div className="col-span-3 flex justify-between items-center pt-2 mt-2 border-t border-white/10">
                                 <div className="flex items-center gap-2">
@@ -511,6 +530,8 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                 });
                             };
 
+                            const dailyCommission = closure.saleTotal * closure.commissionPercentage;
+
                             return (
                                 <Card key={date} className={cn(
                                     "overflow-hidden border-none shadow-sm rounded-2xl bg-white transition-all duration-300",
@@ -535,7 +556,10 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                         </div>
                                         <div className="flex items-center gap-3">
                                             {!isExpanded && (
-                                                <span className="text-sm font-bold text-gray-900 bg-gray-50 px-2.5 py-1 rounded-lg">₡{fmtPlain(closure.saleTotal)}</span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Comisión</span>
+                                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">₡{fmtPlain(dailyCommission)}</span>
+                                                </div>
                                             )}
                                             {isExpanded ? <ChevronUp className="h-5 w-5 text-gray-300" /> : <ChevronDown className="h-5 w-5 text-gray-300" />}
                                         </div>

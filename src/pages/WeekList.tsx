@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { api } from '../lib/api';
 import { useAppStore } from '../lib/store';
-import type { Week, Advance } from '../lib/types';
+import type { Week, Advance, DailyClosure } from '../lib/types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -29,6 +29,7 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
     const { user, selectedBusinessId } = useAppStore(); // Added user from store
     const [weeks, setWeeks] = React.useState<Week[]>([]);
     const [advances, setAdvances] = React.useState<Advance[]>([]); // To show totals
+    const [closures, setClosures] = React.useState<DailyClosure[]>([]); // To show commissions
     const [loading, setLoading] = React.useState(true);
 
     // Modal State
@@ -39,12 +40,14 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
         if (!user || !selectedBusinessId) return;
         setLoading(true);
         try {
-            const [data, userAdvances] = await Promise.all([
-                api.getWeeks(), // Assuming getWeeks doesn't need businessId yet or handles it internally? checking api.ts would be good but error didn't complain.
-                api.getAdvances(user.id, selectedBusinessId)
+            const [data, userAdvances, userClosures] = await Promise.all([
+                api.getWeeks(selectedBusinessId),
+                api.getAdvances(user.id, selectedBusinessId),
+                api.getAllClosures(user.id, selectedBusinessId)
             ]);
             setWeeks(data);
             setAdvances(userAdvances);
+            setClosures(userClosures);
         } catch (error) {
             console.error(error);
         } finally {
@@ -54,12 +57,18 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
 
     React.useEffect(() => {
         init();
-    }, [user, selectedBusinessId]); // Dependency on user
+    }, [user?.id, selectedBusinessId]); // Dependency on user ID only
 
     const getWeekAdvancesTotal = (week: Week) => {
         return advances
             .filter(a => a.date >= week.startDate && a.date <= week.endDate)
             .reduce((sum, a) => sum + a.amount, 0);
+    };
+
+    const getWeekCommissionTotal = (week: Week) => {
+        return closures
+            .filter(c => c.date >= week.startDate && c.date <= week.endDate)
+            .reduce((sum, c) => sum + (c.saleTotal * c.commissionPercentage), 0);
     };
 
     // Create Week State
@@ -88,7 +97,7 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
     };
 
     const executeCreateWeek = async () => {
-        if (!newWeekDate || !newWeekName) return;
+        if (!newWeekDate || !newWeekName || !selectedBusinessId) return;
         setCreating(true);
         try {
             const start = new Date(newWeekDate);
@@ -97,6 +106,7 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
             end.setDate(start.getDate() + 6);
 
             await api.createWeek({
+                businessId: selectedBusinessId, // [NEW]
                 name: newWeekName,
                 startDate: newWeekDate,
                 endDate: end.toISOString().split('T')[0],
@@ -269,18 +279,31 @@ export function WeekListPage({ onSelectWeek, onNavigate }: WeekListProps) {
                                             {week.startDate} - {week.endDate}
                                         </p>
 
-                                        {/* Advances Summary */}
-                                        {getWeekAdvancesTotal(week) > 0 && (
-                                            <div className="mt-2.5 inline-flex items-center gap-1.5 bg-red-50 px-2.5 py-1 rounded-lg">
-                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">
-                                                    Adelantos
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {/* Commission Summary - NEW */}
+                                            <div className="inline-flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-lg">
+                                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wide">
+                                                    Comisión
                                                 </span>
-                                                <div className="h-3 w-px bg-red-200" />
-                                                <span className="text-xs font-bold text-red-600">
-                                                    ₡{getWeekAdvancesTotal(week).toLocaleString('es-CR')}
+                                                <div className="h-3 w-px bg-blue-200" />
+                                                <span className="text-xs font-bold text-blue-600">
+                                                    ₡{getWeekCommissionTotal(week).toLocaleString('es-CR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                                 </span>
                                             </div>
-                                        )}
+
+                                            {/* Advances Summary */}
+                                            {getWeekAdvancesTotal(week) > 0 && (
+                                                <div className="inline-flex items-center gap-1.5 bg-red-50 px-2.5 py-1 rounded-lg">
+                                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">
+                                                        Adelantos
+                                                    </span>
+                                                    <div className="h-3 w-px bg-red-200" />
+                                                    <span className="text-xs font-bold text-red-600">
+                                                        ₡{getWeekAdvancesTotal(week).toLocaleString('es-CR')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="text-gray-300">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 opacity-20"><path d="m9 18 6-6-6-6" /></svg>

@@ -41,7 +41,7 @@ async function safeFetch<T>(
 export const api = {
     // Auth & Profile
     getCurrentUser: async (): Promise<User | null> => {
-        try {
+        return safeFetch(async () => {
             // Create a timeout promise that rejects after 10 seconds
             const timeoutPromise = new Promise<null>((_, reject) => {
                 setTimeout(() => reject(new Error('Request timed out')), 10000);
@@ -50,7 +50,7 @@ export const api = {
             // The actual fetch operation
             const fetchPromise = (async () => {
                 const { data: { session } } = await supabase.auth.getSession();
-                if (!session?.user) return null;
+                if (!session?.user) return { data: null, error: null };
 
                 const { data: profile, error } = await supabase
                     .from('profiles')
@@ -59,27 +59,33 @@ export const api = {
                     .maybeSingle();
 
                 if (error) {
-                    console.error("Error fetching profile:", error);
-                    return null;
+                    return { data: null, error };
                 }
 
                 if (profile) {
                     return {
-                        id: profile.id,
-                        name: profile.name,
-                        username: profile.username,
-                        role: profile.role as 'user' | 'admin'
+                        data: {
+                            id: profile.id,
+                            name: profile.name,
+                            username: profile.username,
+                            role: profile.role as 'user' | 'admin'
+                        },
+                        error: null
                     };
                 }
-                return null;
+                return { data: null, error: null };
             })();
 
-            // Race the fetch against the timeout
-            return await Promise.race([fetchPromise, timeoutPromise]);
-        } catch (error) {
-            console.error("getCurrentUser failed:", error);
-            return null;
-        }
+            try {
+                // We race against timeout, but safeFetch handles the outer retry.
+                // If timeout wins, it rejects, triggering safeFetch retry.
+                const result = await Promise.race([fetchPromise, timeoutPromise]);
+                return result as { data: User | null; error: any };
+            } catch (e) {
+                // If timeout or other error, return as error so safeFetch sees it
+                return { data: null, error: e };
+            }
+        });
     },
 
     // Businesses
@@ -131,10 +137,13 @@ export const api = {
     },
 
     // Weeks
-    getWeeks: async (): Promise<Week[]> => {
+    getWeeks: async (businessId: string): Promise<Week[]> => {
+        if (!businessId) return [];
+
         const { data, error } = await supabase
             .from('weeks')
             .select('*')
+            .eq('business_id', businessId) // Filter by business
             .order('start_date', { ascending: false });
 
         if (error) {
@@ -144,6 +153,7 @@ export const api = {
 
         return data.map((w: any) => ({
             id: w.id,
+            businessId: w.business_id,
             name: w.name,
             startDate: w.start_date,
             endDate: w.end_date,
@@ -156,6 +166,7 @@ export const api = {
         const { data, error } = await supabase
             .from('weeks')
             .insert({
+                business_id: week.businessId,
                 name: week.name,
                 start_date: week.startDate,
                 end_date: week.endDate,
@@ -169,6 +180,7 @@ export const api = {
 
         return {
             id: data.id,
+            businessId: data.business_id,
             name: data.name,
             startDate: data.start_date,
             endDate: data.end_date,
@@ -178,6 +190,41 @@ export const api = {
     },
 
     deleteWeek: async (id: string): Promise<void> => {
+        // 1. Fetch the week first to get dates and business_id
+        const { data: week, error: fetchError } = await supabase
+            .from('weeks')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !week) {
+            console.error("Error fetching week for delete:", fetchError);
+            throw new Error("Could not find week to delete");
+        }
+
+        // 2. Delete associated data (ZOMBIE DATA CLEANUP)
+        // Cleanup Closures
+        await supabase.from('daily_closures')
+            .delete()
+            .eq('business_id', week.business_id)
+            .gte('date', week.start_date)
+            .lte('date', week.end_date);
+
+        // Cleanup Advances
+        await supabase.from('advances')
+            .delete()
+            .eq('business_id', week.business_id)
+            .gte('date', week.start_date)
+            .lte('date', week.end_date);
+
+        // Cleanup Deductions
+        await supabase.from('deductions')
+            .delete()
+            .eq('business_id', week.business_id)
+            .gte('date', week.start_date)
+            .lte('date', week.end_date);
+
+        // 3. Delete the Week itself
         const { error } = await supabase
             .from('weeks')
             .delete()
