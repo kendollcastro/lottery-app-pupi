@@ -530,7 +530,7 @@ export function WeekViewPage({ weekId, onBack, onNavigate }: WeekViewPageProps) 
                                             </div>
                                             <div className="text-left">
                                                 <p className="font-bold text-gray-900 text-lg">{getDayName(date)}</p>
-                                                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{new Date(date).toLocaleDateString()}</p>
+                                                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{new Date(date).toLocaleDateString('es-ES', { timeZone: 'UTC' })}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
